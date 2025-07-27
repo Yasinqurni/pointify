@@ -1,33 +1,51 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.20",
+  solidity: "0.8.23",
   networks: {
     hardhat: {
     },
+    'lisk-sepolia': {
+      url: 'https://rpc.sepolia-api.lisk.com',
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 4202,
+      gasPrice: 1000000000,
+    },
     liskTestnet: {
-      url: "https://rpc.testnet.lisk.com", // Replace with actual Lisk testnet RPC
-      accounts: [process.env.PRIVATE_KEY], // Add your private key to .env
-      chainId: 4202, // Replace with actual Lisk testnet chain ID
+      url: "https://rpc.testnet.lisk.com",
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 4202,
+      gasPrice: 1000000000,
     },
     liskMainnet: {
-      url: "https://rpc.lisk.com", // Replace with actual Lisk mainnet RPC
-      accounts: [process.env.PRIVATE_KEY], // Add your private key to .env
-      chainId: 189, // Replace with actual Lisk mainnet chain ID
+      url: "https://rpc.lisk.com",
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 189,
+      gasPrice: 1000000000,
     }
   },
   etherscan: {
     apiKey: {
-      liskTestnet: process.env.LISK_API_KEY, // Add your Lisk API key to .env
+      "lisk-sepolia": "123",
+      liskTestnet: process.env.LISK_API_KEY,
       liskMainnet: process.env.LISK_API_KEY,
     },
     customChains: [
       {
+        network: "lisk-sepolia",
+        chainId: 4202,
+        urls: {
+          apiURL: "https://sepolia-blockscout.lisk.com/api",
+          browserURL: "https://sepolia-blockscout.lisk.com"
+        }
+      },
+      {
         network: "liskTestnet",
         chainId: 4202,
         urls: {
-          apiURL: "https://explorer.testnet.lisk.com/api", // Replace with actual explorer API
+          apiURL: "https://explorer.testnet.lisk.com/api",
           browserURL: "https://explorer.testnet.lisk.com"
         }
       },
@@ -35,7 +53,7 @@ module.exports = {
         network: "liskMainnet",
         chainId: 189,
         urls: {
-          apiURL: "https://explorer.lisk.com/api", // Replace with actual explorer API
+          apiURL: "https://explorer.lisk.com/api",
           browserURL: "https://explorer.lisk.com"
         }
       }
