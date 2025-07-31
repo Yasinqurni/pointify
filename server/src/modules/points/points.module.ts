@@ -1,0 +1,11 @@
+import { Module } from '@nestjs/common';
+import { PointsController } from './points.controller';
+import { PointsService } from './points.service';
+import { PrismaService } from '../../common/prisma.service';
+
+@Module({
+  controllers: [PointsController],
+  providers: [PointsService, PrismaService],
+  exports: [PointsService],
+})
+export class PointsModule {}
