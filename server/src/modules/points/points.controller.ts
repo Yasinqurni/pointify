@@ -5,6 +5,7 @@ import {
   Body,
   UseGuards,
   Request,
+  Param,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -100,5 +101,28 @@ export class PointsController {
     @Request() req,
   ): Promise<PointsTransactionResponseDto[]> {
     return this.pointsService.getMerchantTransactions(req.user.userId);
+  }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get user point reception logs by user ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of user point reception logs',
+  })
+  async getUserPointReceptionLogs(@Param('userId') userId: string) {
+    return this.pointsService.getUserPointReceptionLogs(userId);
+  }
+
+  @Get('user/:userAddress/merchant/:merchantAddress')
+  @ApiOperation({ summary: 'Get user loyalty details for specific merchant' })
+  @ApiResponse({
+    status: 200,
+    description: 'User loyalty details for merchant',
+  })
+  async getUserLoyaltyDetails(
+    @Param('userAddress') userAddress: string,
+    @Param('merchantAddress') merchantAddress: string,
+  ) {
+    return this.pointsService.getUserLoyaltyDetails(userAddress, merchantAddress);
   }
 }

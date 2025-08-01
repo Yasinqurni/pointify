@@ -7,7 +7,9 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { AppMerchantSidebar } from "@/components/app-merchant-sidebar"
 import { Button } from "@/components/ui/button"
 import { UserInfoModal } from "@/components/user-info-modal"
+import { MerchantRegistrationModal } from "@/components/merchant-registration-modal"
 import { useToast } from "@/components/ui/use-toast"
+import { authService } from "@/lib/auth"
 import {
   mockGetMerchantIDRXBalance,
   mockGetMerchantLoyalBalance,
@@ -16,6 +18,7 @@ import {
 } from "@/lib/ethers"
 import { LogOut, Wallet, User, Shield, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface AppLayoutWrapperProps {
   children: React.ReactNode
@@ -39,10 +42,74 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
   const { toast } = useToast()
   const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false)
   const [loadingBalances, setLoadingBalances] = useState(true)
+  const [merchantData, setMerchantData] = useState<any>(null)
+  const [checkingMerchant, setCheckingMerchant] = useState(false)
+  const [showMerchantRegistration, setShowMerchantRegistration] = useState(false)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [balancesLoaded, setBalancesLoaded] = useState(false)
+  const [merchantFound, setMerchantFound] = useState(false)
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      if (authService.isAuthenticated()) {
+        const userData = authService.getUserData()
+        const authWalletAddress = authService.getWalletAddress()
+        const authUserType = authService.getUserType()
+        
+        // If authenticated user data doesn't match current wallet, logout
+        if (authWalletAddress && walletAddress && authWalletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+          console.log("Wallet address mismatch, logging out")
+          await authService.logout()
+          disconnectWallet()
+          return
+        }
+        
+        // If we have authenticated data but no wallet connection, connect wallet
+        if (authWalletAddress && !isConnected) {
+          console.log("Restoring wallet connection from auth")
+          // This would need to be handled by the wallet connection logic
+        }
+      }
+    }
+
+    checkAuthStatus()
+  }, [walletAddress, isConnected])
+
+  // Reset balances loaded when wallet changes
+  useEffect(() => {
+    setBalancesLoaded(false)
+    setLoadingBalances(true)
+  }, [walletAddress])
+
+  // Hide registration modal when merchant data exists
+  useEffect(() => {
+    if (merchantData && showMerchantRegistration) {
+      console.log("✅ Force hiding registration modal - merchant data exists")
+      setShowMerchantRegistration(false)
+    }
+  }, [merchantData, showMerchantRegistration])
+
+  // Force hide registration modal if merchant data exists
+  useEffect(() => {
+    if (merchantData) {
+      console.log("✅ Merchant data detected, ensuring registration modal is hidden")
+      setShowMerchantRegistration(false)
+      setMerchantFound(true)
+    }
+  }, [merchantData])
+
+  // Force hide registration modal if merchant is found
+  useEffect(() => {
+    if (merchantFound) {
+      console.log("✅ Merchant found, ensuring registration modal is hidden")
+      setShowMerchantRegistration(false)
+    }
+  }, [merchantFound])
 
   useEffect(() => {
     const loadBalances = async () => {
-      if (walletAddress) {
+      if (walletAddress && !balancesLoaded) {
         setLoadingBalances(true)
         try {
           if (userType === "merchant") {
@@ -63,196 +130,257 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
             description: "Failed to load wallet balances. Please refresh.",
             variant: "destructive",
           })
-          setMerchantIDRXBalance(null)
-          setMerchantLoyalBalance(null)
-          setTotalLoyalRewarded(null)
-          setUserLoyalBalance(null)
+          setMerchantIDRXBalance(0)
+          setMerchantLoyalBalance(0)
+          setTotalLoyalRewarded(0)
+          setUserLoyalBalance(0)
         } finally {
           setLoadingBalances(false)
+          setBalancesLoaded(true)
         }
       }
     }
+    
     loadBalances()
-  }, [
-    walletAddress,
-    userType,
-    setMerchantIDRXBalance,
-    setMerchantLoyalBalance,
-    setTotalLoyalRewarded,
-    setUserLoyalBalance,
-    toast,
-  ])
+  }, [walletAddress, userType, balancesLoaded])
 
-  let headerTitle = "Pointify"
-  let headerSubtitle = "Loyalty Platform"
-  if (isConnected) {
-    if (userType === "merchant") {
-      headerTitle = "Merchant Dashboard"
-      headerSubtitle = "Manage your loyalty program"
-    } else if (userType === "user") {
-      headerTitle = ""
-      headerSubtitle = ""
+  // Check if merchant is registered and authenticate if needed
+  useEffect(() => {
+    const checkMerchantRegistration = async () => {
+      console.log("=== Starting merchant registration check ===")
+      console.log("walletAddress:", walletAddress)
+      console.log("userType:", userType)
+      console.log("checkingMerchant:", checkingMerchant)
+      console.log("isAuthenticating:", isAuthenticating)
+      console.log("merchantData:", merchantData)
+      console.log("showMerchantRegistration:", showMerchantRegistration)
+      
+      if (walletAddress && userType === "merchant" && !checkingMerchant && !isAuthenticating) {
+        console.log("✅ Conditions met, starting merchant registration check...")
+        setCheckingMerchant(true)
+        setMerchantData(null) // Reset merchant data to ensure fresh check
+        setShowMerchantRegistration(false) // Reset registration modal state
+        setMerchantFound(false) // Reset merchant found state
+        
+        try {
+          // Always check merchant registration first
+          console.log("🔍 Performing merchant registration check...")
+          console.log("🔍 About to call authService.checkMerchant with walletAddress:", walletAddress)
+          try {
+            const response = await authService.checkMerchant(walletAddress)
+            console.log("📋 Merchant check response:", response)
+            console.log("📋 Response type:", typeof response)
+            console.log("📋 Response keys:", Object.keys(response))
+            
+            if (response && response.data && response.data.exists && response.data.merchant) {
+              console.log("✅ Merchant exists, setting data:", response.data.merchant)
+              console.log("✅ Response.data.merchant type:", typeof response.data.merchant)
+              console.log("✅ Response.data.merchant keys:", Object.keys(response.data.merchant))
+              setMerchantData(response.data.merchant)
+              setMerchantFound(true)
+              setShowMerchantRegistration(false) // Explicitly hide registration modal
+              console.log("✅ Registration modal should be hidden now")
+              
+              // Force immediate state update
+              setTimeout(() => {
+                setShowMerchantRegistration(false)
+                setMerchantFound(true)
+              }, 0)
+              
+              return // Exit early to prevent further processing
+            } else if (response && response.data && response.data.exists === false) {
+              // Merchant not registered, show registration modal
+              console.log("❌ Merchant not registered, showing registration modal")
+              setShowMerchantRegistration(true)
+            } else {
+              // Unexpected response, assume merchant needs to register
+              console.log("❌ Unexpected response, showing registration modal")
+              console.log("❌ Response:", response)
+              setShowMerchantRegistration(true)
+            }
+          } catch (error) {
+            console.error("❌ Error in merchant check:", error)
+            setShowMerchantRegistration(true)
+          }
+
+          // Then check if user is authenticated
+          if (!authService.isAuthenticated()) {
+            console.log("🔐 User not authenticated, attempting login...")
+            setIsAuthenticating(true)
+            
+            try {
+              console.log("🔍 Attempting login for wallet:", walletAddress)
+              const loginResult = await authService.login(walletAddress)
+              console.log("✅ Login successful:", loginResult)
+            } catch (loginError: any) {
+              console.log("❌ Login failed:", loginError.message)
+              console.log("🔍 Checking if merchant exists...")
+              
+              // Check if merchant exists
+              const merchantCheck = await authService.checkMerchant(walletAddress)
+              console.log("🔍 Merchant check result:", merchantCheck)
+              
+              if (merchantCheck && merchantCheck.data && merchantCheck.data.exists && merchantCheck.data.merchant) {
+                console.log("✅ Merchant exists, attempting login again...")
+                // Try login again - maybe the signature was the issue
+                await authService.login(walletAddress)
+              } else {
+                console.log("❌ Merchant not registered, showing registration modal")
+                setShowMerchantRegistration(true)
+                return
+              }
+            } finally {
+              setIsAuthenticating(false)
+            }
+          } else {
+            console.log("✅ User already authenticated")
+          }
+        } catch (error: any) {
+          console.error("❌ Failed to check merchant registration:", error)
+          
+          // Show error message to user
+          if (error.message && error.message.includes("Merchant already registered")) {
+            toast({
+              title: "Wallet Already Registered",
+              description: error.message,
+              variant: "destructive",
+            })
+          } else {
+            // For other errors, show generic message and registration modal
+            toast({
+              title: "Registration Error",
+              description: "Failed to check merchant status. Please try registering again.",
+              variant: "destructive",
+            })
+            setShowMerchantRegistration(true)
+          }
+        } finally {
+          setCheckingMerchant(false)
+          console.log("=== Finished merchant registration check ===")
+          console.log("📊 Final merchantData:", merchantData)
+          console.log("📊 Final showMerchantRegistration:", showMerchantRegistration)
+        }
+      }
     }
-  }
+
+    checkMerchantRegistration()
+  }, [walletAddress, userType]) // Removed checkingMerchant and isAuthenticating from dependencies
 
   const handleDisconnect = () => {
+    authService.logout()
     disconnectWallet()
+    setIsUserInfoModalOpen(false)
+  }
+
+  const handleMerchantRegistrationSuccess = async (merchantData: any) => {
+    console.log("Merchant registration successful:", merchantData)
+    setMerchantData(merchantData)
+    setShowMerchantRegistration(false)
+    
     toast({
-      title: "Wallet Disconnected",
-      description: "You have successfully disconnected your wallet.",
+      title: "Registration Successful!",
+      description: "Your merchant account has been created and you are now logged in.",
     })
   }
 
-  if (!isConnected) {
-    return <>{children}</>
+  const handleMerchantRegistrationCancel = () => {
+    setShowMerchantRegistration(false)
+    disconnectWallet()
   }
 
-  // Conditional rendering based on userType
-  if (userType === "merchant") {
+  if (checkingMerchant || isAuthenticating) {
     return (
-      <SidebarProvider>
-        <AppMerchantSidebar />
-        <SidebarInset>
-          <motion.header 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="z-30 flex h-16 sm:h-20 items-center gap-3 sm:gap-6 border-b border-border/50 bg-gradient-to-r from-background via-background to-background/95 backdrop-blur-sm px-4 sm:px-6 py-3 sm:py-4 shadow-sm"
-          >
-            <SidebarTrigger className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-primary/10 to-primary/20 border border-primary/20 hover:bg-primary/20 transition-all duration-200" />
-            
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="relative">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
-                  <Shield className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary-foreground" />
-                </div>
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 rounded-full bg-green-500 border-2 border-background shadow-sm"></div>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">{headerTitle}</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">{headerSubtitle}</p>
-              </div>
-            </div>
-            
-            <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button 
-                  onClick={() => setIsUserInfoModalOpen(true)} 
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 text-xs sm:text-sm"
-                >
-                  <Wallet className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Wallet Info</span>
-                  <span className="sm:hidden">Wallet</span>
-                </Button>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={handleDisconnect}
-                  className="rounded-xl bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/20 text-red-600 hover:from-red-500/20 hover:to-red-600/20 hover:border-red-500/30 transition-all duration-200 text-xs sm:text-sm"
-                >
-                  <LogOut className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> 
-                  <span className="hidden sm:inline">Disconnect</span>
-                  <span className="sm:hidden">Disconnect</span>
-                </Button>
-              </motion.div>
-            </div>
-          </motion.header>
-          
-          <main className="flex flex-1 flex-col gap-4 p-4 pt-8 md:gap-8 md:p-8 md:pt-12">{children}</main>
-        </SidebarInset>
-
-        {walletAddress && (
-          <UserInfoModal
-            isOpen={isUserInfoModalOpen}
-            onClose={() => setIsUserInfoModalOpen(false)}
-            walletAddress={walletAddress}
-            userType={userType || "merchant"}
-            loyalBalance={userType === "user" ? userLoyalBalance : merchantLoyalBalance}
-            idrxBalance={userType === "merchant" ? merchantIDRXBalance : null}
-            totalLoyalRewarded={userType === "merchant" ? totalLoyalRewarded : null}
-          />
-        )}
-      </SidebarProvider>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">
+            {isAuthenticating ? "Authenticating..." : "Checking merchant registration..."}
+          </p>
+        </div>
+      </div>
     )
   }
 
-  // For userType === "user" or null (if connected but type not set yet, though useEffect handles this)
+  // Don't show registration modal if merchant data exists
+  if (merchantData) {
+    console.log("✅ Merchant data exists, proceeding to main app")
+  }
+
+  console.log("🔍 Modal check - showMerchantRegistration:", showMerchantRegistration, "merchantFound:", merchantFound, "merchantData:", merchantData)
+
+  if (showMerchantRegistration && !merchantFound && !merchantData) {
+    console.log("❌ Showing registration modal - no merchant data")
+    return (
+      <MerchantRegistrationModal
+        walletAddress={walletAddress || ""}
+        onSuccess={handleMerchantRegistrationSuccess}
+        onCancel={handleMerchantRegistrationCancel}
+      />
+    )
+  }
+
+  // If we're on the landing page and wallet is not connected, just render children without any wrapper
+  if (!walletAddress || !isConnected) {
+    return children
+  }
+
   return (
     <>
-      <motion.header 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="z-30 flex h-20 items-center gap-6 border-b border-border/50 bg-gradient-to-r from-background via-background to-background/95 backdrop-blur-sm px-6 py-4 shadow-sm"
-      >
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
-              <User className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500 border-2 border-background shadow-sm"></div>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">{headerTitle}</h1>
-            <p className="text-sm text-muted-foreground">{headerSubtitle}</p>
+      <SidebarProvider>
+        <div className="flex h-screen w-full min-h-screen">
+          {userType === "merchant" && (
+            <AppMerchantSidebar />
+          )}
+          <div className="flex flex-1 flex-col w-full min-w-0">
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-2 sm:px-4">
+              <SidebarTrigger className="-ml-1" />
+              <div className="flex flex-1 items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  <span className="font-semibold text-sm sm:text-base">Pointify</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsUserInfoModalOpen(true)}
+                  className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  </span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Disconnect</span>
+                </Button>
+              </div>
+            </header>
+            <SidebarInset>
+              <div className="flex flex-1 flex-col overflow-hidden w-full min-w-0">
+                {children}
+              </div>
+            </SidebarInset>
           </div>
         </div>
-        
-        <div className="ml-auto flex items-center gap-3">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              onClick={() => setIsUserInfoModalOpen(true)} 
-              variant="outline"
-              className="rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              Wallet Info
-            </Button>
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              variant="secondary" 
-              onClick={handleDisconnect}
-              className="rounded-xl bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/20 text-red-600 hover:from-red-500/20 hover:to-red-600/20 hover:border-red-500/30 transition-all duration-200"
-            >
-              <LogOut className="mr-2 h-4 w-4" /> 
-              Disconnect
-            </Button>
-          </motion.div>
-        </div>
-      </motion.header>
-      
-      <main className="flex flex-1 flex-col gap-4 p-4 pt-8 md:gap-8 md:p-8 md:pt-12">{children}</main>
+      </SidebarProvider>
 
-      {walletAddress && (
-        <UserInfoModal
-          isOpen={isUserInfoModalOpen}
-          onClose={() => setIsUserInfoModalOpen(false)}
-          walletAddress={walletAddress}
-          userType={userType || "user"}
-          loyalBalance={userType === "user" ? userLoyalBalance : merchantLoyalBalance}
-          idrxBalance={userType === "merchant" ? merchantIDRXBalance : null}
-          totalLoyalRewarded={userType === "merchant" ? totalLoyalRewarded : null}
-        />
-      )}
+      <UserInfoModal
+        isOpen={isUserInfoModalOpen}
+        onClose={() => setIsUserInfoModalOpen(false)}
+        walletAddress={walletAddress || ""}
+        userType={userType || "user"}
+        loyalBalance={userType === "merchant" ? (merchantLoyalBalance || 0) : (userLoyalBalance || 0)}
+        idrxBalance={userType === "merchant" ? (merchantIDRXBalance || 0) : undefined}
+        totalLoyalRewarded={userType === "merchant" ? (totalLoyalRewarded || 0) : undefined}
+      />
     </>
   )
 }

@@ -5,51 +5,75 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Scan, CheckCircle, Sparkles, DollarSign, ArrowLeft } from "lucide-react"
+import { Loader2, Scan, CheckCircle, Sparkles, DollarSign, ArrowLeft, QrCode, Keyboard, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { mockRewardUser } from "@/lib/ethers"
+import { 
+  mockRewardUser, 
+  mockGetMerchantLoyalBalance,
+  checkUserBalanceForRedemption 
+} from "@/lib/ethers"
 import { useWalletStore } from "@/lib/store"
 import { RealQRScanner } from "@/components/real-qr-scanner"
 import { motion, AnimatePresence } from "framer-motion"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 // Mock loyalty rules - in real app this would come from the loyalty settings
 const LOYALTY_RULES = {
   pointsPerDollar: 1,
   pointsPerRupiah: 10000,
-  minimumPurchase: 5,
+  minimumPurchase: 10000, // 10,000 IDR minimum
   autoCalculate: true
 }
 
 export default function RewardCustomerPage() {
-  const { walletAddress, userType, setMerchantLoyalBalance, setTotalLoyalRewarded } = useWalletStore()
+  const { walletAddress, userType, merchantLoyalBalance, setMerchantLoyalBalance, setTotalLoyalRewarded } = useWalletStore()
   const { toast } = useToast()
 
   const [scannedAddress, setScannedAddress] = useState<string | null>(null)
   const [priceAmount, setPriceAmount] = useState("")
-  const [currency, setCurrency] = useState<"USD" | "IDR">("USD")
+  const [currency, setCurrency] = useState<"IDR">("IDR")
   const [calculatedLoyalPoints, setCalculatedLoyalPoints] = useState(0)
   const [rewardStatus, setRewardStatus] = useState<"idle" | "scanning" | "confirming" | "success" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
+  const [manualAddress, setManualAddress] = useState("")
+  const [showManualDialog, setShowManualDialog] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("")
+  const [transactionHash, setTransactionHash] = useState<string | null>(null)
 
   useEffect(() => {
     const amount = Number.parseFloat(priceAmount)
     if (!isNaN(amount) && amount > 0) {
-      let points = 0
-      if (currency === "USD") {
-        points = Math.floor(amount * LOYALTY_RULES.pointsPerDollar)
-      } else {
-        points = Math.floor(amount / LOYALTY_RULES.pointsPerRupiah)
-      }
+      // Only IDR calculation
+      const points = Math.floor(amount / LOYALTY_RULES.pointsPerRupiah)
       setCalculatedLoyalPoints(points)
     } else {
       setCalculatedLoyalPoints(0)
     }
-  }, [priceAmount, currency])
+  }, [priceAmount])
 
   const handleScan = (data: string) => {
     setScannedAddress(data)
-    setRewardStatus("confirming")
+    setRewardStatus("idle") // Keep as idle, not confirming
     setErrorMessage(null)
+    setShowScanner(false) // Close scanner after scan
+  }
+
+  const handleManualSubmit = () => {
+    if (!manualAddress.trim()) {
+      toast({
+        title: "Invalid Address",
+        description: "Please enter a valid wallet address.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setScannedAddress(manualAddress)
+    setRewardStatus("idle") // Keep as idle, not confirming
+    setErrorMessage(null)
+    setShowManualDialog(false)
+    setManualAddress("")
   }
 
   const handleConfirmReward = async () => {
@@ -68,27 +92,63 @@ export default function RewardCustomerPage() {
       return
     }
 
+    // Check merchant balance before processing
+    try {
+      const currentBalance = await mockGetMerchantLoyalBalance(walletAddress)
+      if (currentBalance < calculatedLoyalPoints) {
+        setErrorMessage(`Insufficient LOYAL balance. You have ${currentBalance} LOYAL, but need ${calculatedLoyalPoints} LOYAL.`)
+        setRewardStatus("error")
+        toast({
+          title: "Insufficient Balance",
+          description: `You need ${calculatedLoyalPoints} LOYAL but only have ${currentBalance} LOYAL.`,
+          variant: "destructive",
+        })
+        return
+      }
+    } catch (error) {
+      console.error("Failed to check merchant balance:", error)
+      setErrorMessage("Failed to check your LOYAL balance. Please try again.")
+      setRewardStatus("error")
+      return
+    }
+
     setRewardStatus("confirming") // Keep confirming state for loading
     setErrorMessage(null)
+    setLoadingMessage("Processing reward transaction on blockchain...")
+    setTransactionHash(null)
 
     try {
+      // Process reward directly on blockchain
       await mockRewardUser(walletAddress, scannedAddress, calculatedLoyalPoints)
 
-      // Update balances in store
-      setMerchantLoyalBalance((prevBalance) => (prevBalance || 0) - calculatedLoyalPoints)
-      setTotalLoyalRewarded((prevTotal) => (prevTotal || 0) + calculatedLoyalPoints)
+      // Get updated balances from blockchain
+      const newMerchantBalance = await mockGetMerchantLoyalBalance(walletAddress)
+      const currentTotalRewarded = useWalletStore.getState().totalLoyalRewarded || 0
+      
+      // Update store with blockchain data
+      setMerchantLoyalBalance(newMerchantBalance)
+      setTotalLoyalRewarded(currentTotalRewarded + calculatedLoyalPoints)
+
+      // Generate mock transaction hash for demonstration
+      const mockTxHash = `0xreward${Date.now().toString(16)}`
+      setTransactionHash(mockTxHash)
 
       setRewardStatus("success")
+      setLoadingMessage("")
       toast({
-        title: "Reward Issued!",
-        description: `${calculatedLoyalPoints} LOYAL points sent to ${scannedAddress.slice(0, 6)}...${scannedAddress.slice(-4)}.`,
+        title: "Reward Issued Successfully!",
+        description: `${calculatedLoyalPoints} LOYAL points sent to ${scannedAddress.slice(0, 6)}...${scannedAddress.slice(-4)}. Transaction: ${mockTxHash.slice(0, 10)}...`,
       })
-      // Reset form after success
-      setTimeout(() => handleReset(), 2000) // Reset after success animation
+      
+      // Reset form after a short delay to show success
+      setTimeout(() => {
+        handleReset()
+      }, 2000)
     } catch (error: any) {
       console.error("Failed to reward customer:", error)
       setErrorMessage(error.message || "Could not issue reward. Please try again.")
       setRewardStatus("error")
+      setLoadingMessage("")
       toast({
         title: "Reward Failed",
         description: error.message || "Could not issue reward. Please try again.",
@@ -103,6 +163,12 @@ export default function RewardCustomerPage() {
     setCalculatedLoyalPoints(0)
     setRewardStatus("idle")
     setErrorMessage(null)
+    setShowScanner(false)
+    setTransactionHash(null)
+  }
+
+  const handleScannerClose = () => {
+    setShowScanner(false)
   }
 
   if (!walletAddress || userType !== "merchant") {
@@ -120,148 +186,237 @@ export default function RewardCustomerPage() {
     )
   }
 
-  return (
-    <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
-      <Card className="w-full max-w-md shadow-lg glass-card">
-        <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" size="sm" className="p-2 hover:bg-primary/10" onClick={() => window.history.back()}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </div>
-          <CardTitle className="flex items-center gap-2 text-2xl">
-            <Sparkles className="h-6 w-6" /> Reward Customer
-          </CardTitle>
-          <CardDescription>Scan a customer&apos;s wallet to issue LOYAL points.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <AnimatePresence mode="wait">
-            {rewardStatus === "idle" && (
-              <motion.div
-                key="scan"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-4"
+  // Main view - show two buttons (only when no address is set)
+  if (rewardStatus === "idle" && !scannedAddress) {
+    return (
+      <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
+        <Card className="w-full max-w-md shadow-lg glass-card">
+          <CardHeader>
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="ghost" size="sm" className="p-2 hover:bg-primary/10" onClick={() => window.history.back()}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </div>
+            <CardTitle className="flex items-center gap-2 text-2xl">
+              <Sparkles className="h-6 w-6" /> Reward Customer
+            </CardTitle>
+            <CardDescription>Choose how you want to get the customer's wallet address.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <Button 
+                onClick={() => setShowManualDialog(true)} 
+                className="w-full h-16 text-lg"
+                variant="outline"
               >
-
-                <RealQRScanner onScan={handleScan} onClose={handleReset} />
-              </motion.div>
-            )}
-
-            {(rewardStatus === "confirming" || rewardStatus === "error") && scannedAddress && (
-              <motion.div
-                key="confirm"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-4"
+                <Keyboard className="h-5 w-5 mr-2" />
+                Enter Address Manually
+              </Button>
+              
+              <Button 
+                onClick={() => setShowScanner(true)} 
+                className="w-full h-16 text-lg"
               >
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold">Customer Scanned!</h3>
-                  <p className="text-muted-foreground">
-                    Address:{" "}
-                    <span className="font-mono">{`${scannedAddress.slice(0, 6)}...${scannedAddress.slice(-4)}`}</span>
-                  </p>
-                </div>
+                <QrCode className="h-5 w-5 mr-2" />
+                Scan QR Code
+              </Button>
+            </div>
 
+            {/* Manual Input Dialog */}
+            <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Enter Customer Address</DialogTitle>
+                </DialogHeader>
                 <div className="space-y-4">
+                  <Input
+                    placeholder="Enter wallet address..."
+                    value={manualAddress}
+                    onChange={(e) => setManualAddress(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleManualSubmit()}
+                  />
                   <div className="flex gap-2">
-                    <Button
-                      variant={currency === "USD" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrency("USD")}
-                      className="flex-1"
-                    >
-                      USD
+                    <Button onClick={handleManualSubmit} className="flex-1">
+                      Confirm Address
                     </Button>
+                    <Button variant="outline" onClick={() => setShowManualDialog(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* QR Scanner Modal */}
+            {showScanner && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-4 max-w-md w-full mx-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Scan QR Code</h3>
+                    <Button variant="ghost" size="sm" onClick={handleScannerClose}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <RealQRScanner onScan={handleScan} onClose={handleScannerClose} />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  // Reward form view (when address is set)
+  if (scannedAddress) {
+    return (
+      <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
+        <Card className="w-full max-w-md shadow-lg glass-card">
+          <CardHeader>
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="ghost" size="sm" className="p-2 hover:bg-primary/10" onClick={handleReset}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </div>
+            <CardTitle className="flex items-center gap-2 text-2xl">
+              <Sparkles className="h-6 w-6" /> Issue LOYAL Points
+            </CardTitle>
+            <CardDescription>
+              Issue LOYAL points to the scanned customer.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800">Customer Address Found!</h4>
+                <p className="text-sm text-blue-600 mt-1">
+                  Address: {scannedAddress.slice(0, 6)}...{scannedAddress.slice(-4)}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="currency">Currency</Label>
+                  <div className="flex gap-2 mt-2">
                     <Button
+                      type="button"
                       variant={currency === "IDR" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setCurrency("IDR")}
-                      className="flex-1"
                     >
+                      <DollarSign className="h-4 w-4 mr-2" />
                       IDR
                     </Button>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="price-amount">Purchase Amount ({currency})</Label>
-                    <Input
-                      id="price-amount"
-                      type="number"
-                      placeholder={currency === "USD" ? "e.g., 10.50" : "e.g., 150000"}
-                      value={priceAmount}
-                      onChange={(e) => setPriceAmount(e.target.value)}
-                      required
-                      min={LOYALTY_RULES.minimumPurchase}
-                      step={currency === "USD" ? "0.01" : "1000"}
-                      className="bg-background/50 backdrop-blur-sm"
-                    />
-                    {Number.parseFloat(priceAmount) < LOYALTY_RULES.minimumPurchase && priceAmount && (
-                      <p className="text-sm text-orange-600">
-                        Minimum purchase: {LOYALTY_RULES.minimumPurchase} {currency}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Calculated Points:</span>
-                      <span className="text-2xl font-bold text-primary">{calculatedLoyalPoints} LOYAL</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Rate: {currency === "USD" ? `${LOYALTY_RULES.pointsPerDollar} point per $1` : `${LOYALTY_RULES.pointsPerRupiah.toLocaleString()} IDR per point`}
-                    </div>
-                  </div>
                 </div>
-                <Button
-                  onClick={handleConfirmReward}
-                  className="w-full"
-                  disabled={calculatedLoyalPoints <= 0 || rewardStatus === "confirming"}
-                >
-                  {rewardStatus === "confirming" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Confirm & Issue
-                </Button>
-                {errorMessage && <p className="text-destructive text-center text-sm">{errorMessage}</p>}
-                <Button variant="outline" onClick={handleReset} className="w-full bg-transparent">
-                  Cancel
-                </Button>
-              </motion.div>
-            )}
 
-            {rewardStatus === "success" && (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.5 }}
-                className="space-y-4 text-center"
+                <div>
+                  <Label htmlFor="price-amount">Purchase Amount (IDR)</Label>
+                  <Input
+                    id="price-amount"
+                    type="number"
+                    placeholder="e.g., 50000"
+                    value={priceAmount}
+                    onChange={(e) => setPriceAmount(e.target.value)}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Minimum purchase: {LOYALTY_RULES.minimumPurchase.toLocaleString()} IDR
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">Calculated Points:</h4>
+                  <div className="text-2xl font-bold text-primary">{calculatedLoyalPoints} LOYAL</div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Rate: 1 point per {LOYALTY_RULES.pointsPerRupiah.toLocaleString()} IDR
+                  </p>
+                </div>
+
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-yellow-800 mb-2">Your Balance</h4>
+                  <div className="text-lg font-bold text-yellow-700">{merchantLoyalBalance || 0} LOYAL</div>
+                  <p className="text-sm text-yellow-600 mt-1">
+                    {calculatedLoyalPoints > (merchantLoyalBalance || 0) 
+                      ? "⚠️ Insufficient balance for this reward" 
+                      : "✅ Sufficient balance available"}
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleConfirmReward}
+                className="w-full h-12"
+                disabled={rewardStatus === "confirming" || calculatedLoyalPoints <= 0 || calculatedLoyalPoints > (merchantLoyalBalance || 0)}
               >
-                <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
-                <h3 className="text-xl font-semibold">Points Issued Successfully!</h3>
-                <p className="text-muted-foreground">
-                  {calculatedLoyalPoints} LOYAL points sent to{" "}
-                  {`${scannedAddress?.slice(0, 6)}...${scannedAddress?.slice(-4)}`}.
-                </p>
-                <motion.div
-                  className="mx-auto h-12 w-12 rounded-full bg-yellow-400 flex items-center justify-center"
-                  animate={{ rotateY: 360 }}
-                  transition={{ duration: 1, repeat: 1, ease: "linear" }}
+                {rewardStatus === "confirming" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {rewardStatus === "confirming" ? loadingMessage : "Confirm & Issue"}
+              </Button>
+
+              {rewardStatus === "confirming" && (
+                <Button
+                  variant="outline"
+                  onClick={handleReset}
+                  className="w-full"
+                  disabled={true}
                 >
-                  <span className="text-2xl">🪙</span> {/* LOYAL coin icon */}
-                </motion.div>
-                <Button onClick={handleReset} className="w-full">
-                  Issue Another Reward
+                  Cancel Transaction
                 </Button>
-              </motion.div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  // Success state
+  if (rewardStatus === "success") {
+    return (
+      <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
+        <Card className="w-full max-w-md shadow-lg glass-card">
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Reward Issued Successfully!</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              {calculatedLoyalPoints} LOYAL points have been sent to the customer.
+            </p>
+            {transactionHash && (
+              <div className="bg-green-50 p-3 rounded-lg w-full">
+                <p className="text-sm font-medium text-green-800">Transaction Hash:</p>
+                <p className="text-xs font-mono text-green-600 break-all">{transactionHash}</p>
+              </div>
             )}
-          </AnimatePresence>
-        </CardContent>
-      </Card>
-    </main>
-  )
+            <Button onClick={handleReset} className="w-full mt-4">
+              Issue Another Reward
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  // Error state
+  if (rewardStatus === "error") {
+    return (
+      <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
+        <Card className="w-full max-w-md shadow-lg glass-card">
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+              <Sparkles className="h-8 w-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Reward Failed</h3>
+            <p className="text-muted-foreground text-center mb-6">
+              {errorMessage || "An error occurred while issuing the reward."}
+            </p>
+            <Button onClick={handleReset} className="w-full">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  return null
 }

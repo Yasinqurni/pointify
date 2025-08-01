@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import {
   RedeemRewardDto,
   VerifyClaimCodeDto,
@@ -15,7 +16,10 @@ import { ethers } from 'ethers';
 
 @Injectable()
 export class RedemptionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private blockchainService: BlockchainService,
+  ) {}
 
   async redeemReward(
     userId: string,
@@ -50,7 +54,9 @@ export class RedemptionsService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.loyaltyPoints < reward.requiredPoints) {
+    // Check balance on blockchain instead of database
+    const blockchainBalance = await this.blockchainService.getLoyaltyTokenBalance(user.walletAddress);
+    if (parseFloat(blockchainBalance) < reward.requiredPoints) {
       throw new BadRequestException('Insufficient loyalty points');
     }
 
@@ -76,13 +82,8 @@ export class RedemptionsService {
       },
     });
 
-    // Deduct points from user
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        loyaltyPoints: user.loyaltyPoints - reward.requiredPoints,
-      },
-    });
+    // Points are deducted on blockchain, not in database
+    // The blockchain transaction handles the balance update
 
     // Create point transaction record
     await this.prisma.pointTransaction.create({
@@ -200,6 +201,32 @@ export class RedemptionsService {
       merchantName: updatedRedemption.merchant.name,
       redeemedPoints: updatedRedemption.reward.requiredPoints,
     };
+  }
+
+  async confirmClaimById(
+    merchantId: string,
+    redemptionId: string,
+  ): Promise<void> {
+    const redemption = await this.prisma.redemption.findFirst({
+      where: { id: redemptionId, merchantId },
+    });
+
+    if (!redemption) {
+      throw new NotFoundException('Redemption not found');
+    }
+
+    if (redemption.status !== 'PENDING') {
+      throw new BadRequestException('Redemption has already been processed');
+    }
+
+    // Update redemption status
+    await this.prisma.redemption.update({
+      where: { id: redemptionId },
+      data: {
+        status: 'CLAIMED',
+        redeemedAt: new Date(),
+      },
+    });
   }
 
   async getUserRedemptions(userId: string): Promise<RedemptionResponseDto[]> {

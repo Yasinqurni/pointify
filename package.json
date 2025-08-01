@@ -1,18 +1,29 @@
 {
-  "name": "loyalty-coin-dapp",
+  "name": "pointify",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "server",
+    "client",
     "frontend"
   ],
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.js --network localhost"
+    "deploy": "hardhat run scripts/deploy.js --network localhost",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run start:dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "setup": "npm run install:all && npm run compile"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^3.0.0",
-    "hardhat": "^2.22.0"
+    "hardhat": "^2.22.0",
+    "concurrently": "^8.2.2"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",

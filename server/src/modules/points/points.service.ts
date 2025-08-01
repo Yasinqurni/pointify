@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import {
   IssuePointsDto,
   PointsTransactionResponseDto,
@@ -13,7 +14,10 @@ import {
 
 @Injectable()
 export class PointsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private blockchainService: BlockchainService,
+  ) {}
 
   async issuePoints(
     merchantId: string,
@@ -43,13 +47,16 @@ export class PointsService {
       throw new NotFoundException('Merchant not found');
     }
 
-    // Update user's loyalty points
-    const updatedUser = await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        loyaltyPoints: user.loyaltyPoints + points,
-      },
-    });
+    // Issue points on blockchain
+    const success = await this.blockchainService.rewardUser(
+      merchant.walletAddress,
+      userWalletAddress,
+      points.toString(),
+    );
+
+    if (!success) {
+      throw new BadRequestException('Failed to issue points on blockchain');
+    }
 
     // Create point transaction record
     const transaction = await this.prisma.pointTransaction.create({
@@ -61,13 +68,7 @@ export class PointsService {
       },
     });
 
-    // Update merchant's total rewarded
-    await this.prisma.merchant.update({
-      where: { id: merchantId },
-      data: {
-        totalRewarded: merchant.totalRewarded + points,
-      },
-    });
+    // Total rewarded is tracked on blockchain, not in database
 
     return {
       id: transaction.id,
@@ -89,7 +90,12 @@ export class PointsService {
       throw new NotFoundException('User not found');
     }
 
-    // Calculate total received and spent
+    // Get balance from blockchain
+    const blockchainBalance = await this.blockchainService.getLoyaltyTokenBalance(
+      user.walletAddress,
+    );
+
+    // Calculate total received and spent from database transactions
     const transactions = await this.prisma.pointTransaction.findMany({
       where: { userId },
     });
@@ -106,7 +112,7 @@ export class PointsService {
 
     return {
       walletAddress: user.walletAddress,
-      loyaltyPoints: user.loyaltyPoints,
+      loyaltyPoints: parseFloat(blockchainBalance),
       totalReceived,
       totalSpent,
     };
@@ -123,11 +129,18 @@ export class PointsService {
       throw new NotFoundException('Merchant not found');
     }
 
+    // Get balances from blockchain
+    const idrxBalance = await this.blockchainService.getLoyaltyTokenBalance(merchant.walletAddress);
+    const loyalBalance = await this.blockchainService.getLoyaltyTokenBalance(merchant.walletAddress);
+    
+    // For now, we'll use the same balance for both since we need to implement separate token contracts
+    // In a real implementation, you'd have separate contracts for IDRX and LOYAL tokens
+
     return {
       walletAddress: merchant.walletAddress,
-      idrxBalance: merchant.idrxBalance,
-      loyalBalance: merchant.loyalBalance,
-      totalRewarded: merchant.totalRewarded,
+      idrxBalance: parseFloat(idrxBalance),
+      loyalBalance: parseFloat(loyalBalance),
+      totalRewarded: 0, // This would be calculated from blockchain events
     };
   }
 
@@ -183,5 +196,63 @@ export class PointsService {
       merchantId: transaction.merchantId || undefined,
       redemptionId: transaction.redemptionId || undefined,
     }));
+  }
+
+  async getUserPointReceptionLogs(userId: string) {
+    const transactions = await this.prisma.pointTransaction.findMany({
+      where: { 
+        userId,
+        type: 'RECEIVED',
+      },
+      include: {
+        merchant: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return transactions.map((transaction) => ({
+      id: transaction.id,
+      userId: transaction.userId,
+      merchantName: transaction.merchant?.name || 'Unknown Merchant',
+      pointsReceived: transaction.amount,
+      receivedDate: transaction.createdAt.toISOString().slice(0, 19).replace('T', ' '),
+      transactionHash: `0x${transaction.id.slice(0, 8)}`, // Mock transaction hash
+    }));
+  }
+
+  async getUserLoyaltyDetails(userAddress: string, merchantAddress: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { walletAddress: userAddress },
+    });
+
+    const merchant = await this.prisma.merchant.findFirst({
+      where: { walletAddress: merchantAddress },
+    });
+
+    if (!user || !merchant) {
+      return null;
+    }
+
+    // Get user's total balance from blockchain
+    const blockchainBalance = await this.blockchainService.getLoyaltyTokenBalance(
+      userAddress,
+    );
+
+    // Get merchant's rewards
+    const rewards = await this.prisma.reward.findMany({
+      where: { merchantId: merchant.id, isActive: true },
+    });
+
+    return {
+      merchantName: merchant.name,
+      userPoints: parseFloat(blockchainBalance),
+      rewards: rewards.map(reward => ({
+        id: reward.id,
+        name: reward.title,
+        pointsRequired: reward.requiredPoints,
+        description: reward.description,
+        imageUrl: reward.imageUrl || '/placeholder.svg?height=100&width=100',
+      })),
+    };
   }
 }

@@ -52,6 +52,46 @@ export class RewardsController {
     return this.rewardsService.getMerchantRewards(req.user.userId);
   }
 
+  @Get('merchant/:merchantId')
+  @ApiOperation({ summary: 'Get merchant data by merchant ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Merchant data',
+  })
+  async getMerchantData(@Param('merchantId') merchantId: string) {
+    return this.rewardsService.getMerchantData(merchantId);
+  }
+
+  @Get('merchant/:merchantId/dashboard')
+  @ApiOperation({ summary: 'Get merchant dashboard data' })
+  @ApiResponse({
+    status: 200,
+    description: 'Merchant dashboard data',
+  })
+  async getMerchantDashboardData(@Param('merchantId') merchantId: string) {
+    return this.rewardsService.getMerchantDashboardData(merchantId);
+  }
+
+  @Get('merchant/:merchantAddress/loyalty-program')
+  @ApiOperation({ summary: 'Get merchant loyalty program' })
+  @ApiResponse({
+    status: 200,
+    description: 'Merchant loyalty program data',
+  })
+  async getMerchantLoyaltyProgram(@Param('merchantAddress') merchantAddress: string) {
+    return this.rewardsService.getMerchantLoyaltyProgram(merchantAddress);
+  }
+
+  @Get('user/:userAddress')
+  @ApiOperation({ summary: 'Get user rewards by user address' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of user rewards',
+  })
+  async getUserRewards(@Param('userAddress') userAddress: string) {
+    return this.rewardsService.getUserRewards(userAddress);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get reward by ID' })
   @ApiResponse({

@@ -56,7 +56,18 @@ export class BlockchainService {
     const rpcUrl =
       this.configService.get<string>('BLOCKCHAIN_RPC_URL') ||
       'http://localhost:8545';
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    try {
+      this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+        staticNetwork: true, // Prevent ENS resolution
+      });
+    } catch (error) {
+      this.logger.error(`Failed to initialize provider: ${error.message}`);
+      // Create a mock provider for development
+      this.provider = new ethers.JsonRpcProvider('http://localhost:8545', undefined, {
+        staticNetwork: true,
+      });
+    }
 
     const loyaltyTokenAddress = this.configService.get<string>(
       'LOYALTY_TOKEN_ADDRESS',
@@ -163,21 +174,25 @@ export class BlockchainService {
     amount: string,
   ): Promise<boolean> {
     try {
-      const signer = await this.provider.getSigner();
-      const rewardManagerWithSigner =
-        this.rewardManagerContract.connect(signer);
+      // Check if contracts are available
+      if (!this.rewardManagerContract) {
+        this.logger.warn('Reward manager contract not configured');
+        return false;
+      }
 
-      const amountWei = ethers.parseEther(amount);
-      const tx = await (rewardManagerWithSigner as any).rewardUser(
-        userWallet,
-        amountWei,
-      );
-      await tx.wait();
-
-      this.logger.log(
-        `Rewarded ${amount} PLT to ${userWallet} by merchant ${merchantWallet}`,
-      );
-      return true;
+      // For now, return false since we don't have a signer configured
+      // In production, you would need to configure a signer with private key
+      this.logger.warn('Signer not configured for blockchain operations');
+      return false;
+      
+      // Uncomment when you have a proper signer configured:
+      // const signer = await this.provider.getSigner();
+      // const rewardManagerWithSigner = this.rewardManagerContract.connect(signer);
+      // const amountWei = ethers.parseEther(amount);
+      // const tx = await (rewardManagerWithSigner as any).rewardUser(userWallet, amountWei);
+      // await tx.wait();
+      // this.logger.log(`Rewarded ${amount} PLT to ${userWallet} by merchant ${merchantWallet}`);
+      // return true;
     } catch (error) {
       this.logger.error(`Error rewarding user: ${error.message}`);
       return false;
@@ -187,18 +202,24 @@ export class BlockchainService {
   // Redemption Router functions
   async redeemPoint(userWallet: string, amount: string): Promise<boolean> {
     try {
-      const signer = await this.provider.getSigner();
-      const redemptionRouterWithSigner =
-        this.redemptionRouterContract.connect(signer);
+      // Check if contracts are available
+      if (!this.redemptionRouterContract) {
+        this.logger.warn('Redemption router contract not configured');
+        return false;
+      }
 
-      const amountWei = ethers.parseEther(amount);
-      const tx = await (redemptionRouterWithSigner as any).redeemPoint(
-        amountWei,
-      );
-      await tx.wait();
-
-      this.logger.log(`Redeemed ${amount} PLT for user ${userWallet}`);
-      return true;
+      // For now, return false since we don't have a signer configured
+      this.logger.warn('Signer not configured for blockchain operations');
+      return false;
+      
+      // Uncomment when you have a proper signer configured:
+      // const signer = await this.provider.getSigner();
+      // const redemptionRouterWithSigner = this.redemptionRouterContract.connect(signer);
+      // const amountWei = ethers.parseEther(amount);
+      // const tx = await (redemptionRouterWithSigner as any).redeemPoint(amountWei);
+      // await tx.wait();
+      // this.logger.log(`Redeemed ${amount} PLT for user ${userWallet}`);
+      // return true;
     } catch (error) {
       this.logger.error(`Error redeeming points: ${error.message}`);
       return false;
@@ -212,23 +233,24 @@ export class BlockchainService {
     merchantWallet: string,
   ): Promise<boolean> {
     try {
-      const signer = await this.provider.getSigner();
-      const redemptionRouterWithSigner =
-        this.redemptionRouterContract.connect(signer);
+      // Check if contracts are available
+      if (!this.redemptionRouterContract) {
+        this.logger.warn('Redemption router contract not configured');
+        return false;
+      }
 
-      const amountWei = ethers.parseEther(amount);
-      const tx = await (redemptionRouterWithSigner as any).manualRedeem(
-        userWallet,
-        amountWei,
-        item,
-        merchantWallet,
-      );
-      await tx.wait();
-
-      this.logger.log(
-        `Manual redemption: ${amount} PLT for item ${item} by user ${userWallet}`,
-      );
-      return true;
+      // For now, return false since we don't have a signer configured
+      this.logger.warn('Signer not configured for blockchain operations');
+      return false;
+      
+      // Uncomment when you have a proper signer configured:
+      // const signer = await this.provider.getSigner();
+      // const redemptionRouterWithSigner = this.redemptionRouterContract.connect(signer);
+      // const amountWei = ethers.parseEther(amount);
+      // const tx = await (redemptionRouterWithSigner as any).manualRedeem(userWallet, amountWei, item, merchantWallet);
+      // await tx.wait();
+      // this.logger.log(`Manual redemption: ${amount} PLT for item ${item} by user ${userWallet}`);
+      // return true;
     } catch (error) {
       this.logger.error(`Error manual redemption: ${error.message}`);
       return false;
@@ -251,18 +273,24 @@ export class BlockchainService {
     pltAmount: string,
   ): Promise<boolean> {
     try {
-      const signer = await this.provider.getSigner();
-      const swapRouterWithSigner = this.swapRouterContract.connect(signer);
+      // Check if contracts are available
+      if (!this.swapRouterContract) {
+        this.logger.warn('Swap router contract not configured');
+        return false;
+      }
 
-      const amountWei = ethers.parseEther(pltAmount);
-      const tx = await (swapRouterWithSigner as any).swapPLTForToken(
-        tokenAddress,
-        amountWei,
-      );
-      await tx.wait();
-
-      this.logger.log(`Swapped ${pltAmount} PLT for token ${tokenAddress}`);
-      return true;
+      // For now, return false since we don't have a signer configured
+      this.logger.warn('Signer not configured for blockchain operations');
+      return false;
+      
+      // Uncomment when you have a proper signer configured:
+      // const signer = await this.provider.getSigner();
+      // const swapRouterWithSigner = this.swapRouterContract.connect(signer);
+      // const amountWei = ethers.parseEther(pltAmount);
+      // const tx = await (swapRouterWithSigner as any).swapPLTForToken(tokenAddress, amountWei);
+      // await tx.wait();
+      // this.logger.log(`Swapped ${pltAmount} PLT for token ${tokenAddress}`);
+      // return true;
     } catch (error) {
       this.logger.error(`Error swapping PLT for token: ${error.message}`);
       return false;
@@ -274,18 +302,24 @@ export class BlockchainService {
     tokenAmount: string,
   ): Promise<boolean> {
     try {
-      const signer = await this.provider.getSigner();
-      const swapRouterWithSigner = this.swapRouterContract.connect(signer);
+      // Check if contracts are available
+      if (!this.swapRouterContract) {
+        this.logger.warn('Swap router contract not configured');
+        return false;
+      }
 
-      const amountWei = ethers.parseEther(tokenAmount);
-      const tx = await (swapRouterWithSigner as any).swapTokenForPLT(
-        tokenAddress,
-        amountWei,
-      );
-      await tx.wait();
-
-      this.logger.log(`Swapped ${tokenAmount} tokens for PLT`);
-      return true;
+      // For now, return false since we don't have a signer configured
+      this.logger.warn('Signer not configured for blockchain operations');
+      return false;
+      
+      // Uncomment when you have a proper signer configured:
+      // const signer = await this.provider.getSigner();
+      // const swapRouterWithSigner = this.swapRouterContract.connect(signer);
+      // const amountWei = ethers.parseEther(tokenAmount);
+      // const tx = await (swapRouterWithSigner as any).swapTokenForPLT(tokenAddress, amountWei);
+      // await tx.wait();
+      // this.logger.log(`Swapped ${tokenAmount} tokens for PLT`);
+      // return true;
     } catch (error) {
       this.logger.error(`Error swapping token for PLT: ${error.message}`);
       return false;

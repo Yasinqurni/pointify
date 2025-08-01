@@ -1,244 +1,191 @@
-# Pointify Loyalty System - Backend
+# Pointify - Web3 Loyalty Reward System
 
-A clean, scalable NestJS backend with PostgreSQL + Prisma for a Web3-style loyalty reward system, integrated with smart contracts for tokenized loyalty points.
+A comprehensive blockchain-powered loyalty reward system built with NestJS, Next.js, and smart contracts.
 
-## 🚀 Features
+## 🏗️ Architecture
 
-- **Wallet-based Authentication**: Secure login using wallet signatures
-- **Loyalty Points Management**: Off-chain points with on-chain verification
-- **Smart Contract Integration**: Direct blockchain interaction for token operations
-- **Reward System**: Create, manage, and redeem rewards
-- **Redemption Process**: QR code-based redemption with claim codes
-- **Merchant Dashboard**: Balance management and transaction history
-- **User Dashboard**: Point balance and redemption history
-- **Swap Functionality**: PLT token swapping with other tokens
-- **API Documentation**: Auto-generated Swagger docs
-
-## 🛠 Tech Stack
-
-### Backend
-- **NestJS** - Modular backend framework
-- **PostgreSQL** - Primary database
-- **Prisma** - Type-safe database ORM
-- **JWT** - Authentication tokens
-- **Swagger** - API documentation
-- **Ethers.js** - Wallet signature verification and blockchain interaction
-
-### Smart Contracts
-- **Solidity** - Smart contract language
-- **LoyaltyToken** - ERC20 token with IDRX backing
-- **RewardManager** - Merchant quota and point issuance
-- **RedemptionRouter** - Point redemption with IDRX payout
-- **SwapRouter** - Token swapping functionality
-
-## 📋 Prerequisites
-
-- Node.js (v16 or higher)
-- PostgreSQL database
-- Local blockchain network (Hardhat/Ganache) or testnet
-- npm or yarn
+- **Backend**: NestJS API with Prisma ORM and PostgreSQL
+- **Frontend**: Next.js with TypeScript and Tailwind CSS
+- **Blockchain**: Smart contracts on Lisk network
+- **Database**: PostgreSQL with Prisma migrations
 
 ## 🚀 Quick Start
 
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### Prerequisites
 
-2. **Set up environment variables**
-   ```bash
-   # Copy and edit .env file
-   cp .env.example .env
-   ```
+- Node.js 18+ and npm/pnpm
+- PostgreSQL database
+- Lisk wallet for blockchain interactions
 
-3. **Configure blockchain addresses**
-   ```env
-   # Update these with your deployed contract addresses
-   LOYALTY_TOKEN_ADDRESS="0x..."
-   REWARD_MANAGER_ADDRESS="0x..."
-   REDEMPTION_ROUTER_ADDRESS="0x..."
-   SWAP_ROUTER_ADDRESS="0x..."
-   BLOCKCHAIN_RPC_URL="http://localhost:8545"
-   ```
+### 1. Clone and Setup
 
-4. **Set up database**
-   ```bash
-   # Generate Prisma client
-   npx prisma generate
-   
-   # Run database migrations
-   npx prisma migrate dev
-   ```
+```bash
+git clone <repository-url>
+cd pointify
+npm run setup
+```
 
-5. **Start the development server**
-   ```bash
-   npm run start:dev
-   ```
+### 2. Environment Configuration
 
-6. **Access the API**
-   - API: http://localhost:3001
-   - Swagger Docs: http://localhost:3001/api
+#### Server Environment
+```bash
+cd server
+cp env.template .env
+```
 
-## 📚 API Endpoints
+Edit `server/.env`:
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/loyalty_system?schema=public"
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+BLOCKCHAIN_RPC_URL="https://rpc.sepolia-api.lisk.com"
+NETWORK="lisk-sepolia"
+CHAIN_ID=4202
+LOYALTY_TOKEN_ADDRESS="0xe316A3c04d6aAb4432Be1330dbc13B4Ff1616c54"
+REWARD_MANAGER_ADDRESS="0x1E0F4ADf27F9100e99fdc0e8e5bAeF456292B465"
+REDEMPTION_ROUTER_ADDRESS="0x937085C7567e340A4100EEC7cD62788C17f8C1DD"
+SWAP_ROUTER_ADDRESS="0x7C9e6c4B8c8B8B8B8B8B8B8B8B8B8B8B8B8B8B8B"
+IDRX_TOKEN_ADDRESS="0x4c5A172D31e96D4EA6Dc008feAd9C0ba59159299"
+PORT=3001
+NODE_ENV=development
+```
+
+#### Client Environment
+```bash
+cd client
+```
+
+The client environment is already configured to connect to the server at `http://localhost:3001`.
+
+### 3. Database Setup
+
+```bash
+cd server
+npx prisma migrate dev
+npx prisma generate
+```
+
+### 4. Start Development
+
+```bash
+# Start both server and client
+npm run dev
+
+# Or start individually:
+npm run dev:server  # Server on http://localhost:3001
+npm run dev:client  # Client on http://localhost:3000
+```
+
+## 📁 Project Structure
+
+```
+pointify/
+├── server/                 # NestJS Backend API
+│   ├── src/
+│   │   ├── modules/       # API modules (auth, rewards, etc.)
+│   │   ├── common/        # Shared utilities
+│   │   └── dto/          # Data transfer objects
+│   ├── prisma/           # Database schema and migrations
+│   └── package.json
+├── client/                # Next.js Frontend
+│   ├── app/              # Next.js app router
+│   ├── components/       # React components
+│   ├── lib/             # Utilities and API calls
+│   └── package.json
+├── contracts/            # Smart contracts
+├── scripts/             # Deployment scripts
+└── package.json         # Root workspace config
+```
+
+## 🔧 API Endpoints
 
 ### Authentication
-- `POST /auth/login` - Login with wallet signature
-- `POST /auth/register/user` - Register new user
-- `POST /auth/register/merchant` - Register new merchant
+- `POST /auth/login` - User login
+- `POST /auth/register` - User registration
 
 ### Rewards
 - `GET /rewards` - Get all active rewards
-- `GET /rewards/merchant` - Get merchant rewards
-- `POST /rewards` - Create new reward
-- `PUT /rewards/:id` - Update reward
-- `DELETE /rewards/:id` - Delete reward
+- `POST /rewards` - Create new reward (merchant only)
+- `GET /rewards/merchant/:id` - Get merchant data
+- `GET /rewards/user/:address` - Get user rewards
 
 ### Redemptions
-- `POST /redemptions/redeem` - Redeem a reward
-- `POST /redemptions/verify` - Verify claim code
-- `PUT /redemptions/confirm` - Confirm claim
-- `GET /redemptions/user` - Get user redemptions
-- `GET /redemptions/merchant` - Get merchant redemptions
+- `POST /redemptions` - Redeem a reward
+- `GET /redemptions/verify/:code` - Verify claim code
+- `PUT /redemptions/:id/confirm` - Confirm claim
+- `GET /redemptions/user/:userId` - Get user redemptions
 
 ### Points
 - `POST /points/issue` - Issue points to user
-- `GET /points/balance/user` - Get user balance
-- `GET /points/balance/merchant` - Get merchant balance
-- `GET /points/transactions/user` - Get user transactions
-- `GET /points/transactions/merchant` - Get merchant transactions
+- `GET /points/user/:userId` - Get user point logs
+- `GET /points/user/:address/merchant/:address` - Get user loyalty details
 
-### Blockchain Integration
-- `GET /blockchain/network` - Get network information
-- `GET /blockchain/loyalty-token/supply` - Get total token supply
-- `GET /blockchain/loyalty-token/backing-ratio` - Get backing ratio
-- `GET /blockchain/loyalty-token/balance/:address` - Get token balance
-- `GET /blockchain/merchant/quota/:address` - Get merchant quota
+### Blockchain
+- `GET /blockchain/balance/:address` - Get LOYAL balance
 - `POST /blockchain/merchant/reward-user` - Reward user with points
-- `POST /blockchain/user/redeem-points` - Redeem points for IDRX
-- `POST /blockchain/merchant/manual-redeem` - Manual redemption
-- `GET /blockchain/swap/exchange-rate/:tokenAddress` - Get exchange rate
-- `POST /blockchain/swap/plt-for-token` - Swap PLT for token
-- `POST /blockchain/swap/token-for-plt` - Swap token for PLT
-- `POST /blockchain/validate-signature` - Validate wallet signature
 
-## 🗄 Database Schema
+## 🎯 Features
 
-The system uses the following main entities:
+### For Users
+- Connect wallet and view LOYAL balance
+- Browse available rewards from merchants
+- Redeem rewards with loyalty points
+- View redemption history and point logs
+- Swap LOYAL tokens for other tokens
 
-- **Users**: Store wallet addresses and loyalty points
-- **Merchants**: Store merchant info and balance quotas
-- **Rewards**: Define available rewards with point costs
-- **Redemptions**: Track reward redemption process
-- **PointTransactions**: Audit trail for all point movements
+### For Merchants
+- Create and manage loyalty rewards
+- Issue points to customers
+- Verify and confirm reward redemptions
+- View customer analytics and loyalty program stats
+- Manage merchant settings and quotas
 
-## 🔐 Authentication
+## 🔐 Security
 
-The system uses JWT tokens with wallet signature verification:
+- JWT-based authentication
+- Wallet signature validation
+- Role-based access control (User/Merchant)
+- Input validation and sanitization
+- CORS configuration
 
-1. User signs a message with their wallet
-2. Backend verifies the signature using ethers.js
-3. JWT token is issued for subsequent requests
+## 🧪 Testing
 
-## ⛓ Smart Contract Integration
+```bash
+# Test smart contracts
+npm run test
 
-### LoyaltyToken Contract
-- ERC20 token with IDRX backing
-- 1:1 backing ratio maintained
-- Mint/burn functionality for authorized contracts
-- Transfer functions for regular ERC20 operations
+# Test server API
+cd server && npm run test
 
-### RewardManager Contract
-- Manages merchant approval and quotas
-- Handles IDRX top-up and withdrawal
-- Issues loyalty points to users
-- Tracks total rewards distributed
-
-### RedemptionRouter Contract
-- Processes point redemption for IDRX
-- Handles manual redemption for physical items
-- Calculates and distributes platform fees
-- Burns tokens during redemption
-
-### SwapRouter Contract
-- Enables PLT swapping with other tokens
-- Uses constant product formula (x * y = k)
-- Supports liquidity provision and removal
-- Handles swap fees and routing
-
-## 🏗 Architecture
-
-- **Modular Design**: Separate modules for auth, rewards, redemptions, points, blockchain
-- **DTO Validation**: Class-validator for request validation
-- **Swagger Documentation**: Auto-generated API docs
-- **Type Safety**: Full TypeScript support with Prisma
-- **Blockchain Integration**: Direct smart contract interaction
-- **Off-chain/On-chain Hybrid**: Smooth UX with blockchain verification
-
-## 🔄 User Flow
-
-### Merchant Flow
-1. Register as merchant with wallet
-2. Get approved by admin
-3. Top up IDRX for quota
-4. Issue loyalty points to users
-5. Create and manage rewards
-6. Process redemptions
-
-### User Flow
-1. Register with wallet
-2. Receive loyalty points from merchants
-3. Browse available rewards
-4. Redeem rewards for physical items
-5. Swap PLT for other tokens
-6. Redeem PLT for IDRX
+# Test client (if configured)
+cd client && npm run test
+```
 
 ## 🚀 Deployment
 
-1. **Deploy smart contracts**
-   ```bash
-   npx hardhat deploy --network <network>
-   ```
-
-2. **Update environment variables**
-   ```env
-   LOYALTY_TOKEN_ADDRESS="deployed_address"
-   REWARD_MANAGER_ADDRESS="deployed_address"
-   REDEMPTION_ROUTER_ADDRESS="deployed_address"
-   SWAP_ROUTER_ADDRESS="deployed_address"
-   BLOCKCHAIN_RPC_URL="https://your-rpc-url"
-   ```
-
-3. **Build the application**
-   ```bash
-   npm run build
-   ```
-
-4. **Start production server**
-   ```bash
-   npm run start:prod
-   ```
-
-## 📝 Environment Variables
-
-```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/loyalty_system"
-
-# JWT
-JWT_SECRET="your-super-secret-jwt-key"
-JWT_EXPIRES_IN="7d"
-
-# App
-PORT=3001
-NODE_ENV=production
-
-# Blockchain
-BLOCKCHAIN_RPC_URL="https://your-rpc-url"
-LOYALTY_TOKEN_ADDRESS="0x..."
-REWARD_MANAGER_ADDRESS="0x..."
-REDEMPTION_ROUTER_ADDRESS="0x..."
-SWAP_ROUTER_ADDRESS="0x..."
+### Smart Contracts
+```bash
+npm run deploy
 ```
+
+### Server
+```bash
+cd server
+npm run build
+npm run start:prod
+```
+
+### Client
+```bash
+cd client
+npm run build
+npm run start
+```
+
+## 📚 API Documentation
+
+Once the server is running, visit:
+- Swagger UI: http://localhost:3001/api
+- Health Check: http://localhost:3001/health
 
 ## 🤝 Contributing
 
@@ -250,4 +197,15 @@ SWAP_ROUTER_ADDRESS="0x..."
 
 ## 📄 License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+For support and questions:
+- Check the API documentation at `/api`
+- Review the smart contract tests
+- Open an issue on GitHub
+
+---
+
+**Pointify** - Rewarding loyalty with blockchain technology 🎁 

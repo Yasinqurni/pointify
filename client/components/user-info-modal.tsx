@@ -89,7 +89,7 @@ export function UserInfoModal({
               <span className="font-medium">ETH Balance:</span>
               <div className="flex items-center gap-1">
                 <Coins className="h-3 w-3" />
-                <span>{parseFloat(ethBalance).toFixed(4)} ETH</span>
+                <span>{parseFloat(ethBalance || "0").toFixed(4)} ETH</span>
               </div>
             </div>
           )}
@@ -97,7 +97,7 @@ export function UserInfoModal({
           {loyalBalance !== null && (
             <div className="flex items-center justify-between">
               <span className="font-medium">LOYAL Balance:</span>
-              <span>{loyalBalance.toFixed(2)}</span>
+              <span>{(loyalBalance || 0).toFixed(2)}</span>
             </div>
           )}
           {userType === "merchant" && (
@@ -105,13 +105,13 @@ export function UserInfoModal({
               {idrxBalance !== null && (
                 <div className="flex items-center justify-between">
                   <span className="font-medium">IDRX Balance:</span>
-                  <span>{idrxBalance.toFixed(2)}</span>
+                  <span>{(idrxBalance || 0).toFixed(2)}</span>
                 </div>
               )}
               {totalLoyalRewarded !== null && (
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Total LOYAL Rewarded:</span>
-                  <span>{totalLoyalRewarded.toFixed(2)}</span>
+                  <span>{(totalLoyalRewarded || 0).toFixed(2)}</span>
                 </div>
               )}
             </>

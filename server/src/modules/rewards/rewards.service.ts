@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import {
   CreateRewardDto,
   UpdateRewardDto,
@@ -8,7 +9,10 @@ import {
 
 @Injectable()
 export class RewardsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private blockchainService: BlockchainService,
+  ) {}
 
   async createReward(
     merchantId: string,
@@ -166,5 +170,126 @@ export class RewardsService {
       merchantName: reward.merchant.name,
       merchantLogoUrl: reward.merchant.logoUrl || undefined,
     };
+  }
+
+  async getMerchantData(merchantId: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { id: merchantId },
+      include: {
+        rewards: true,
+      },
+    });
+
+    if (!merchant) {
+      return {
+        name: "Unknown Merchant",
+        address: "",
+        loyaltyProgram: "",
+        rewards: [],
+      };
+    }
+
+    return {
+      name: merchant.name,
+      address: merchant.walletAddress || "",
+      loyaltyProgram: merchant.description || "Earn points with every purchase",
+      rewards: merchant.rewards.map(reward => ({
+        id: reward.id,
+        name: reward.title,
+        points: reward.requiredPoints,
+      })),
+    };
+  }
+
+  async getMerchantDashboardData(merchantId: string) {
+    const customerCount = await this.prisma.user.count({
+      where: {
+        redemptions: {
+          some: {
+            merchantId,
+          },
+        },
+      },
+    });
+
+    return {
+      totalCustomers: customerCount,
+    };
+  }
+
+  async getMerchantLoyaltyProgram(merchantAddress: string) {
+    const merchant = await this.prisma.merchant.findFirst({
+      where: { walletAddress: merchantAddress },
+    });
+
+    if (!merchant) {
+      return {
+        loyalCustomers: [],
+        totalLoyaltyPoints: 0,
+      };
+    }
+
+    const loyalCustomers = await this.prisma.user.findMany({
+      where: {
+        redemptions: {
+          some: {
+            merchantId: merchant.id,
+          },
+        },
+      },
+      select: {
+        id: true,
+        walletAddress: true,
+        // loyaltyPoints removed - using blockchain balance
+      },
+    });
+
+    // Calculate total points from blockchain balances
+    const totalLoyaltyPoints = await Promise.all(
+      loyalCustomers.map(customer => 
+        this.blockchainService.getLoyaltyTokenBalance(customer.walletAddress)
+      )
+    ).then(balances => 
+      balances.reduce((sum, balance) => sum + parseFloat(balance), 0)
+    );
+
+    return {
+      loyalCustomers: loyalCustomers.map(customer => ({
+        address: customer.walletAddress,
+        name: `User ${customer.id.slice(0, 8)}`,
+        points: 0, // Will be calculated from blockchain
+      })),
+      totalLoyaltyPoints,
+    };
+  }
+
+  async getUserRewards(userAddress: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { walletAddress: userAddress },
+      include: {
+        redemptions: {
+          include: {
+            reward: {
+              include: {
+                merchant: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) {
+      return [];
+    }
+
+    return user.redemptions.map(redemption => ({
+      id: redemption.id,
+      merchantName: redemption.reward.merchant.name,
+      rewardName: redemption.reward.title,
+      pointsCost: redemption.reward.requiredPoints,
+      dateRedeemed: redemption.redeemedAt?.toISOString().split('T')[0] || redemption.createdAt.toISOString().split('T')[0],
+    }));
   }
 }

@@ -1,7 +1,8 @@
-// This file simulates backend API calls for rewards, redemptions, and reward creation.
-// In a real application, these would be actual HTTP requests to your server.
+// Real API calls to the NestJS server
+// This replaces the mock API calls with actual HTTP requests
 
 import { v4 as uuidv4 } from "uuid"
+import { authService } from "./auth"
 
 // --- Data Models ---
 export interface Reward {
@@ -36,468 +37,572 @@ export interface PointReception {
   transactionHash: string // Mock transaction hash
 }
 
-// --- Mock Data Store ---
-const mockRewards: Reward[] = [
-  {
-    id: "reward-1",
-    title: "Free Donut",
-    description: "Enjoy a delicious donut on us!",
-    imageUrl: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=200&h=200&fit=crop&crop=center",
-    merchantName: "Sweet Treats Bakery",
-    merchantLogoUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=80&h=80&fit=crop&crop=center",
-    requiredPoints: 25,
-    expiryDate: "2025-12-31",
-  },
-  {
-    id: "reward-2",
-    title: "20% Off Coffee",
-    description: "Get 20% off any coffee beverage.",
-    imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200&h=200&fit=crop&crop=center",
-    merchantName: "Daily Grind Cafe",
-    merchantLogoUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=80&h=80&fit=crop&crop=center",
-    requiredPoints: 50,
-    expiryDate: "2025-11-15",
-  },
-  {
-    id: "reward-3",
-    title: "Free Movie Ticket",
-    description: "Your next movie night is on us!",
-    imageUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=200&h=200&fit=crop&crop=center",
-    merchantName: "Cineplex Grand",
-    merchantLogoUrl: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=80&h=80&fit=crop&crop=center",
-    requiredPoints: 100,
-    expiryDate: "2026-01-31",
-  },
-  {
-    id: "reward-4",
-    title: "Buy One Get One Pizza",
-    description: "Grab a friend and enjoy two pizzas for the price of one!",
-    imageUrl: "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop&crop=center",
-    merchantName: "Pizza Palace",
-    merchantLogoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=80&h=80&fit=crop&crop=center",
-    requiredPoints: 75,
-    expiryDate: "2025-10-01",
-  },
-  {
-    id: "reward-5",
-    title: "Free Ice Cream Cone",
-    description: "Cool down with a delicious ice cream cone!",
-    imageUrl: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=200&h=200&fit=crop&crop=center",
-    merchantName: "Frozen Delights",
-    merchantLogoUrl: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=80&h=80&fit=crop&crop=center",
-    requiredPoints: 30,
-    expiryDate: "2025-09-30",
-  },
-  {
-    id: "reward-6",
-    title: "50% Off Burger",
-    description: "Half price on any burger of your choice!",
-    imageUrl: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=200&h=200&fit=crop&crop=center",
-    merchantName: "Burger Joint",
-    merchantLogoUrl: "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=80&h=80&fit=crop&crop=center",
-    requiredPoints: 60,
-    expiryDate: "2025-12-15",
-  },
-]
-
-const mockRedemptions: Redemption[] = [
-  {
-    id: "redemption-1",
-    userId: "0xabc...123",
-    rewardId: "reward-1",
-    rewardTitle: "Free Donut",
-    merchantName: "Sweet Treats Bakery",
-    redeemedPoints: 25,
-    redeemedDate: "2025-07-20 10:30:00",
-    claimCode: "DONUT-XYZ789",
-    status: "claimed",
-  },
-  {
-    id: "redemption-2",
-    userId: "0xdef...456",
-    rewardId: "reward-2",
-    rewardTitle: "20% Off Coffee",
-    merchantName: "Daily Grind Cafe",
-    redeemedPoints: 50,
-    redeemedDate: "2025-07-25 14:00:00",
-    claimCode: "COFFEE-ABC123",
-    status: "pending",
-  },
-]
-
-const mockPointReceptionLogs: PointReception[] = [
-  {
-    id: "reception-1",
-    userId: "0xabc...123",
-    merchantName: "Sweet Treats Bakery",
-    pointsReceived: 50,
-    receivedDate: "2025-07-19 09:00:00",
-    transactionHash: "0xmocktx1",
-  },
-  {
-    id: "reception-2",
-    userId: "0xdef...456",
-    merchantName: "Daily Grind Cafe",
-    pointsReceived: 30,
-    receivedDate: "2025-07-24 11:00:00",
-    transactionHash: "0xmocktx2",
-  },
-]
-
-// Mock user LOYAL balances (from lib/store.ts, but updated here for API context)
-const mockUserLoyalBalances: { [address: string]: number } = {
-  "0xabc...123": 150, // Example User 1 LOYAL balance
-  "0xdef...456": 70, // Example User 2 LOYAL balance
+// Authentication interfaces
+export interface AuthResponse {
+  accessToken: string
+  refreshToken: string
+  user: {
+    id: string
+    walletAddress: string
+    userType: 'user' | 'merchant'
+    name?: string
+    description?: string
+    logoUrl?: string
+  }
 }
 
-// --- API Functions ---
+export interface LoginRequest {
+  walletAddress: string
+  signature: string
+  message: string
+}
+
+export interface RegisterUserRequest {
+  walletAddress: string
+  signature: string
+  message: string
+  name?: string
+}
+
+export interface RegisterMerchantRequest {
+  walletAddress: string
+  signature: string
+  message: string
+  name: string
+  description?: string
+  logoUrl?: string
+}
+
+// API Configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+// Helper function for API calls
+async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`
+  console.log(`🌐 Making API call to: ${url}`)
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    })
+
+    console.log(`📡 Response status: ${response.status}`)
+    console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()))
+
+    if (!response.ok) {
+      throw new Error(`API call failed: ${response.status} ${response.statusText}`)
+    }
+
+    const jsonResponse = await response.json()
+    console.log(`📦 Raw JSON response:`, jsonResponse)
+    console.log(`📦 Response type:`, typeof jsonResponse)
+    console.log(`📦 Response keys:`, Object.keys(jsonResponse))
+    
+    return jsonResponse
+  } catch (error) {
+    console.warn(`Server unavailable, falling back to mock data for: ${endpoint}`, error)
+    throw error // Re-throw to let individual functions handle with mock data
+  }
+}
+
+// Helper function for authenticated API calls
+async function authenticatedApiCall<T>(endpoint: string, token: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+      ...options,
+    })
+
+    if (!response.ok) {
+      throw new Error(`API call failed: ${response.status} ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.warn(`Server unavailable for authenticated call: ${endpoint}`, error)
+    throw error
+  }
+}
+
+// --- Authentication API Functions ---
 
 /**
- * Simulates fetching all available rewards.
+ * Login with wallet signature
+ * @param loginData Wallet address, signature, and message
+ * @returns Authentication response with tokens
+ */
+export async function loginWithWallet(loginData: LoginRequest): Promise<{ data: AuthResponse }> {
+  console.log(`Logging in with wallet: ${loginData.walletAddress}`)
+  try {
+    const response = await apiCall<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(loginData)
+    })
+    console.log(response, 'disini auth response')
+    return { data: response };
+  } catch (error) {
+    console.error('Failed to login:', error)
+    throw new Error('Login failed. Please try again.')
+  }
+}
+
+/**
+ * Refresh authentication token
+ * @param refreshToken The refresh token
+ * @returns New authentication response
+ */
+export async function refreshToken(refreshToken: string): Promise<AuthResponse> {
+  console.log('Refreshing authentication token')
+  try {
+    return await apiCall<AuthResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken })
+    })
+  } catch (error) {
+    console.error('Failed to refresh token:', error)
+    throw new Error('Token refresh failed. Please login again.')
+  }
+}
+
+/**
+ * Logout and invalidate token
+ * @param accessToken The current access token
+ */
+export async function logout(accessToken: string): Promise<void> {
+  console.log('Logging out')
+  try {
+    await authenticatedApiCall('/auth/logout', accessToken, {
+      method: 'POST'
+    })
+  } catch (error) {
+    console.error('Failed to logout:', error)
+    // Don't throw error for logout failure
+  }
+}
+
+/**
+ * Register new user with wallet signature
+ * @param registerData User registration data with signature
+ * @returns Authentication response
+ */
+export async function registerUser(registerData: RegisterUserRequest): Promise<{ data: AuthResponse }> {
+  console.log(`Registering new user: ${registerData.walletAddress}`)
+  try {
+    const response = await apiCall<AuthResponse>('/auth/register/user', {
+      method: 'POST',
+      body: JSON.stringify(registerData)
+    })
+    return { data: response }
+  } catch (error) {
+    console.error('Failed to register user:', error)
+    throw new Error('User registration failed. Please try again.')
+  }
+}
+
+/**
+ * Check if user exists
+ * @param walletAddress The wallet address to check
+ * @returns User existence status
+ */
+export async function checkUser(walletAddress: string): Promise<{ exists: boolean; user?: any }> {
+  console.log(`Checking if user exists: ${walletAddress}`)
+  try {
+    return await apiCall<{ exists: boolean; user?: any }>('/auth/check/user', {
+      method: 'POST',
+      body: JSON.stringify({ walletAddress })
+    })
+  } catch (error) {
+    console.error('Failed to check user:', error)
+    return { exists: false }
+  }
+}
+
+/**
+ * Get user by wallet address
+ * @param walletAddress The wallet address
+ * @returns User data
+ */
+export async function getUserByAddress(walletAddress: string): Promise<any> {
+  console.log(`Getting user by address: ${walletAddress}`)
+  try {
+    return await apiCall<any>(`/auth/user/${walletAddress}`)
+  } catch (error) {
+    console.error('Failed to get user:', error)
+    throw new Error('Failed to get user data.')
+  }
+}
+
+/**
+ * Register new merchant with wallet signature
+ * @param registerData Merchant registration data with signature
+ * @returns Authentication response
+ */
+export async function registerMerchant(registerData: RegisterMerchantRequest): Promise<{ data: AuthResponse }> {
+  console.log(`Registering new merchant: ${registerData.walletAddress}`)
+  try {
+    const response = await apiCall<AuthResponse>('/auth/register/merchant', {
+      method: 'POST',
+      body: JSON.stringify(registerData)
+    })
+    return { data: response }
+  } catch (error) {
+    console.error('Failed to register merchant:', error)
+    throw new Error('Merchant registration failed. Please try again.')
+  }
+}
+
+/**
+ * Check if merchant exists
+ * @param walletAddress The wallet address to check
+ * @returns Merchant existence status
+ */
+export async function checkMerchant(walletAddress: string): Promise<{ data: { exists: boolean; merchant?: any } }> {
+  console.log(`Checking if merchant exists: ${walletAddress}`)
+  try {
+    const response = await apiCall<{ exists: boolean; merchant?: any }>('/auth/check/merchant', {
+      method: 'POST',
+      body: JSON.stringify({ walletAddress })
+    })
+    return { data: response }
+  } catch (error: any) {
+    console.error('Failed to check merchant:', error)
+    
+    // If it's a 401 error saying merchant already exists, show proper error
+    if (error.message && error.message.includes("Merchant already exists")) {
+      throw new Error("Merchant already registered. Please use a different wallet address.")
+    }
+    
+    // For other errors, re-throw the original error
+    throw error
+  }
+}
+
+/**
+ * Get merchant by wallet address
+ * @param walletAddress The wallet address
+ * @returns Merchant data
+ */
+export async function getMerchantByWallet(walletAddress: string): Promise<any> {
+  console.log(`Getting merchant by address: ${walletAddress}`)
+  try {
+    return await apiCall<any>(`/auth/merchant/${walletAddress}`)
+  } catch (error) {
+    console.error('Failed to get merchant:', error)
+    throw new Error('Failed to get merchant data.')
+  }
+}
+
+// --- Existing API Functions ---
+
+/**
+ * Fetches all available rewards from the server.
  * @returns A promise that resolves with an array of Reward objects.
  */
-export async function fetchRewards(): Promise<Reward[]> {
-  console.log("Simulating fetching all rewards...")
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockRewards)
-    }, 100) // Reduced delay for faster loading
-  })
+export async function fetchRewards(): Promise<{ data: Reward[] }> {
+  console.log("Fetching all rewards from server...")
+  try {
+    const response = await apiCall<Reward[]>('/rewards')
+    return { data: response }
+  } catch (error) {
+    console.error('Failed to fetch rewards:', error)
+    throw new Error('Server is unavailable. Please try again later.')
+  }
 }
 
 /**
- * Simulates a user redeeming a reward.
+ * Fetches rewards for the authenticated merchant.
+ * @returns A promise that resolves with an array of Reward objects.
+ */
+export async function fetchMerchantRewards(): Promise<{ data: Reward[] }> {
+  console.log("🔍 Fetching rewards for authenticated merchant...")
+  try {
+    const token = authService.getAccessToken()
+    console.log("🔍 Token available:", !!token)
+    if (!token) {
+      throw new Error('No authentication token available')
+    }
+    console.log("🔍 Making authenticated API call to /rewards/merchant")
+    const result = await authenticatedApiCall<Reward[]>('/rewards/merchant', token)
+    console.log("🔍 API call result:", result)
+    return { data: result }
+  } catch (error) {
+    console.error('❌ Failed to fetch merchant rewards:', error)
+    throw new Error('Server is unavailable. Please try again later.')
+  }
+}
+
+/**
+ * A user redeeming a reward.
  * @param userId The user's wallet address.
  * @param rewardId The ID of the reward to redeem.
  * @returns A promise that resolves with the new Redemption object.
  */
 export async function redeemReward(userId: string, rewardId: string): Promise<Redemption> {
-  console.log(`Simulating redemption of reward ${rewardId} by user ${userId}`)
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const reward = mockRewards.find((r) => r.id === rewardId)
-      if (!reward) {
-        return reject(new Error("Reward not found."))
-      }
-      if ((mockUserLoyalBalances[userId] || 0) < reward.requiredPoints) {
-        return reject(new Error("Insufficient LOYAL points."))
-      }
-
-      // Deduct points
-      mockUserLoyalBalances[userId] = (mockUserLoyalBalances[userId] || 0) - reward.requiredPoints
-
-      // Generate unique claim code
-      const claimCode = `${reward.title.split(" ")[0].toUpperCase()}-${uuidv4().slice(0, 6).toUpperCase()}`
-
-      const newRedemption: Redemption = {
-        id: `redemption-${uuidv4()}`,
-        userId,
-        rewardId,
-        rewardTitle: reward.title,
-        merchantName: reward.merchantName,
-        redeemedPoints: reward.requiredPoints,
-        redeemedDate: new Date().toISOString().slice(0, 19).replace("T", " "),
-        claimCode,
-        status: "pending", // Pending until claimed by merchant
-      }
-      mockRedemptions.push(newRedemption)
-      console.log("Redemption successful:", newRedemption)
-      resolve(newRedemption)
-    }, 200) // Reduced delay for faster loading
-  })
+  console.log(`Redeeming reward ${rewardId} by user ${userId}`)
+  try {
+    return await apiCall<Redemption>('/redemptions', {
+      method: 'POST',
+      body: JSON.stringify({ userId, rewardId }),
+    })
+  } catch (error) {
+    console.error('Failed to redeem reward:', error)
+    throw error
+  }
 }
 
 /**
- * Simulates creating a new reward.
+ * Creating a new reward.
  * @param newRewardData The data for the new reward.
  * @returns A promise that resolves with the created Reward object.
  */
 export async function createReward(newRewardData: Omit<Reward, "id">): Promise<Reward> {
-  console.log("Simulating creating new reward:", newRewardData)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const reward: Reward = {
-        id: `reward-${uuidv4()}`,
-        ...newRewardData,
-      }
-      mockRewards.push(reward)
-      console.log("Reward created:", reward)
-      resolve(reward)
-    }, 200) // Reduced delay for faster loading
-  })
+  console.log("Creating new reward:", newRewardData)
+  try {
+    return await apiCall<Reward>('/rewards', {
+      method: 'POST',
+      body: JSON.stringify(newRewardData),
+    })
+  } catch (error) {
+    console.error('Failed to create reward:', error)
+    throw error
+  }
 }
 
 /**
- * Simulates verifying a claim code by a merchant.
- * @param claimCode The claim code to verify.
- * @returns A promise that resolves with the Redemption object if valid and pending, or null if not found/invalid.
+ * Verifying a claim code for redemption.
+ * @param claimCode The unique claim code generated when user redeems a reward.
+ * @returns A promise that resolves with the redemption details or null if invalid.
+ * 
+ * REDEMPTION METADATA STRUCTURE:
+ * - claimCode: Unique code (e.g., "ABC123XYZ") generated when user redeems
+ * - redemptionId: Database ID of the redemption record
+ * - userId: Customer's wallet address (e.g., "0x1234...5678")
+ * - rewardId: ID of the reward being redeemed
+ * - rewardTitle: Name of the reward (e.g., "Free Coffee")
+ * - merchantName: Merchant's business name
+ * - redeemedPoints: Number of LOYAL points spent
+ * - status: "pending" | "claimed" | "expired"
+ * - redeemedDate: When the redemption was created
  */
 export async function verifyClaimCode(claimCode: string): Promise<Redemption | null> {
-  console.log(`Simulating verifying claim code: ${claimCode}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const redemption = mockRedemptions.find((r) => r.claimCode === claimCode && r.status === "pending")
-      if (redemption) {
-        console.log("Claim code verified:", redemption)
-        resolve(redemption)
-      } else {
-        console.log("Claim code not found or already claimed.")
-        resolve(null)
-      }
-    }, 150) // Reduced delay for faster loading
-  })
+  console.log(`Verifying claim code: ${claimCode}`)
+  try {
+    return await apiCall<Redemption | null>(`/redemptions/verify/${claimCode}`)
+  } catch (error) {
+    console.error('Failed to verify claim code:', error)
+    throw new Error('Server is unavailable. Please try again later.')
+  }
 }
 
 /**
- * Simulates marking a redemption as claimed by a merchant.
+ * Marking a redemption as claimed by a merchant.
  * @param redemptionId The ID of the redemption to mark as claimed.
  * @returns A promise that resolves when the status is updated.
  */
 export async function confirmClaim(redemptionId: string): Promise<void> {
-  console.log(`Simulating confirming claim for redemption: ${redemptionId}`)
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const redemptionIndex = mockRedemptions.findIndex((r) => r.id === redemptionId)
-      if (redemptionIndex > -1) {
-        mockRedemptions[redemptionIndex].status = "claimed"
-        console.log("Claim confirmed:", mockRedemptions[redemptionIndex])
-        resolve()
-      } else {
-        reject(new Error("Redemption not found."))
-      }
-    }, 150) // Reduced delay for faster loading
-  })
+  console.log(`Confirming claim for redemption: ${redemptionId}`)
+  try {
+    await apiCall(`/redemptions/${redemptionId}/confirm`, {
+      method: 'PUT',
+    })
+  } catch (error) {
+    console.error('Failed to confirm claim:', error)
+    throw new Error('Server is unavailable. Please try again later.')
+  }
 }
 
 /**
- * Simulates fetching a user's redemption history.
+ * Fetching a user's redemption history.
  * @param userId The user's wallet address.
  * @returns A promise that resolves with an array of Redemption objects.
  */
 export async function fetchUserRedemptions(userId: string): Promise<Redemption[]> {
-  console.log(`Simulating fetching redemption history for user: ${userId}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockRedemptions.filter((r) => r.userId === userId))
-    }, 100) // Reduced delay for faster loading
-  })
+  console.log(`Fetching redemption history for user: ${userId}`)
+  try {
+    return await apiCall<Redemption[]>(`/redemptions/user/${userId}`)
+  } catch (error) {
+    console.error('Failed to fetch user redemptions:', error)
+    return []
+  }
 }
 
 /**
- * Simulates fetching a user's point reception history.
+ * Fetching a user's point reception history.
  * @param userId The user's wallet address.
  * @returns A promise that resolves with an array of PointReception objects.
  */
 export async function fetchUserPointReceptionLogs(userId: string): Promise<PointReception[]> {
-  console.log(`Simulating fetching point reception history for user: ${userId}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockPointReceptionLogs.filter((log) => log.userId === userId))
-    }, 100) // Reduced delay for faster loading
-  })
+  console.log(`Fetching point reception history for user: ${userId}`)
+  try {
+    return await apiCall<PointReception[]>(`/points/user/${userId}`)
+  } catch (error) {
+    console.error('Failed to fetch user point reception logs:', error)
+    return []
+  }
 }
 
 /**
- * Simulates fetching all redemption logs for merchants.
+ * Fetching all redemption logs for merchants.
  * @returns A promise that resolves with an array of Redemption objects.
  */
 export async function fetchMerchantRedemptionLogs(): Promise<Redemption[]> {
-  console.log("Simulating fetching all merchant redemption logs...")
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockRedemptions)
-    }, 100) // Reduced delay for faster loading
-  })
+  console.log("Fetching all merchant redemption logs...")
+  try {
+    return await apiCall<Redemption[]>('/redemptions/merchant')
+  } catch (error) {
+    console.error('Failed to fetch merchant redemption logs:', error)
+    return []
+  }
 }
 
-// New mock data for dashboard
-const mockDashboardData = {
-  totalCustomers: 150,
-  // Add other dashboard metrics here if needed
-}
-
-// Mock data for merchant loyalty program
-const mockLoyaltyProgramData = {
-  loyalCustomers: [
-    { address: "0xabc...123", name: "Alice", points: 150 },
-    { address: "0xdef...456", name: "Bob", points: 70 },
-    { address: "0x123...789", name: "Charlie", points: 200 },
-  ],
-  totalLoyaltyPoints: 420, // Sum of all loyalCustomers points
-}
-
-// Mock data for user loyalty details for a specific merchant
-const mockUserLoyaltyDetailsData = {
-  "0xabc...123": {
-    // user address
-    "0xMerchant123": {
-      // merchant address
-      merchantName: "Pointify Cafe",
-      userPoints: 150, // User's points with this specific merchant
-      rewards: [
-        {
-          id: "reward-1",
-          name: "Free Coffee",
-          pointsRequired: 10,
-          description: "A free cup of coffee.",
-          imageUrl: "/placeholder.svg?height=100&width=100",
-        },
-        {
-          id: "reward-2",
-          name: "Pastry Discount",
-          pointsRequired: 5,
-          description: "20% off any pastry.",
-          imageUrl: "/placeholder.svg?height=100&width=100",
-        },
-      ],
-    },
-  },
-}
-
-// Add this function after `fetchMerchantRedemptionLogs`
 /**
- * Simulates fetching dashboard-specific data for a merchant.
+ * Fetching dashboard-specific data for a merchant.
  * @param merchantId The merchant's ID.
  * @returns A promise that resolves with the merchant's dashboard data.
  */
 export async function fetchMerchantDashboardData(merchantId: string) {
   console.log(`Fetching dashboard data for merchant: ${merchantId}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockDashboardData)
-    }, 100) // Reduced delay for faster loading
-  })
+  try {
+    return await apiCall(`/rewards/merchant/${merchantId}/dashboard`)
+  } catch (error) {
+    console.error('Failed to fetch merchant dashboard data:', error)
+    return { totalCustomers: 0 }
+  }
 }
 
-// --- New API Functions ---
 /**
- * Simulates fetching data for a merchant.
+ * Fetching data for a merchant.
  * @param merchantId The merchant's ID.
  * @returns A promise that resolves with the merchant's data.
  */
 export async function fetchMerchantData(merchantId: string) {
   console.log(`Fetching data for merchant: ${merchantId}`)
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        name: "Pointify Cafe",
-        address: "123 Main St, Anytown",
-        loyaltyProgram: "1 point per $10 spent",
-        rewards: [
-          { id: "1", name: "Free Coffee", points: 10 },
-          { id: "2", name: "Pastry Discount", points: 5 },
-        ],
-      })
-    }, 100) // Reduced delay for faster loading
-  })
+  try {
+    return await apiCall(`/rewards/merchant/${merchantId}`)
+  } catch (error) {
+    console.error('Failed to fetch merchant data:', error)
+    return {
+      name: "Unknown Merchant",
+      address: "",
+      loyaltyProgram: "",
+      rewards: [],
+    }
+  }
 }
 
 /**
- * Simulates fetching rewards for a user.
+ * Fetching rewards for a user.
  * @param userAddress The user's wallet address.
  * @returns A promise that resolves with an array of user rewards.
  */
 export async function fetchUserRewards(userAddress: string) {
   console.log(`Fetching rewards for user: ${userAddress}`)
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          id: "r1",
-          merchantName: "Pointify Cafe",
-          rewardName: "Free Coffee",
-          pointsCost: 10,
-          dateRedeemed: "2025-07-20",
-        },
-        { id: "r2", merchantName: "Book Nook", rewardName: "10% Off Book", pointsCost: 15, dateRedeemed: "2025-07-15" },
-      ])
-    }, 100) // Reduced delay for faster loading
-  })
+  try {
+    return await apiCall(`/rewards/user/${userAddress}`)
+  } catch (error) {
+    console.error('Failed to fetch user rewards:', error)
+    return []
+  }
 }
 
 /**
- * Simulates fetching redeem logs for a merchant.
+ * Fetching redeem logs for a merchant.
  * @param merchantAddress The merchant's wallet address.
  * @returns A promise that resolves with an array of redeem logs.
  */
 export async function fetchRedeemLogs(merchantAddress: string) {
   console.log(`Fetching redeem logs for merchant: ${merchantAddress}`)
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        { id: "log1", userAddress: "0xabc...123", rewardName: "Free Coffee", pointsRedeemed: 10, date: "2025-07-25" },
-        {
-          id: "log2",
-          userAddress: "0xdef...456",
-          rewardName: "Pastry Discount",
-          pointsRedeemed: 5,
-          date: "2025-07-24",
-        },
-      ])
-    }, 100) // Reduced delay for faster loading
-  })
+  try {
+    return await apiCall(`/redemptions/merchant/${merchantAddress}`)
+  } catch (error) {
+    console.error('Failed to fetch redeem logs:', error)
+    return []
+  }
 }
 
-// Add this function after `fetchRedeemLogs`
 /**
- * Simulates fetching a merchant's loyalty program details.
+ * Fetching a merchant's loyalty program details.
  * @param merchantAddress The merchant's wallet address.
  * @returns A promise that resolves with the loyalty program data.
  */
 export async function fetchMerchantLoyaltyProgram(merchantAddress: string) {
   console.log(`Fetching loyalty program for merchant: ${merchantAddress}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockLoyaltyProgramData)
-    }, 100) // Reduced delay for faster loading
-  })
+  try {
+    return await apiCall(`/rewards/merchant/${merchantAddress}/loyalty-program`)
+  } catch (error) {
+    console.error('Failed to fetch merchant loyalty program:', error)
+    return {
+      loyalCustomers: [],
+      totalLoyaltyPoints: 0,
+    }
+  }
 }
 
-// Add this function after `fetchMerchantLoyaltyProgram`
 /**
- * Simulates fetching a user's loyalty details for a specific merchant.
+ * Fetching a user's loyalty details for a specific merchant.
  * @param userAddress The user's wallet address.
  * @param merchantAddress The merchant's wallet address.
  * @returns A promise that resolves with the user's loyalty details for that merchant.
  */
 export async function fetchUserLoyaltyDetails(userAddress: string, merchantAddress: string) {
   console.log(`Fetching user loyalty details for user: ${userAddress} at merchant: ${merchantAddress}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockUserLoyaltyDetailsData[userAddress]?.[merchantAddress] || null)
-    }, 100) // Reduced delay for faster loading
-  })
+  try {
+    return await apiCall(`/points/user/${userAddress}/merchant/${merchantAddress}`)
+  } catch (error) {
+    console.error('Failed to fetch user loyalty details:', error)
+    return null
+  }
 }
 
-// --- Mock LOYAL Token Functions (for balance display, not core logic) ---
-// These are kept separate from the main API functions as they represent direct token interactions
-// which might still be relevant for displaying balances, even if rewards are API-driven.
-
 /**
- * Simulates fetching a user's LOYAL token balance.
+ * Fetching a user's LOYAL token balance from blockchain.
  * @param userAddress The user's wallet address.
  * @returns A promise that resolves with the user's LOYAL balance.
  */
 export async function mockGetUserLoyalBalance(userAddress: string): Promise<number> {
-  console.log(`Simulating fetching LOYAL balance for user: ${userAddress}`)
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockUserLoyalBalances[userAddress] || 0)
-    }, 100) // Reduced delay for faster loading
-  })
+  console.log(`Fetching LOYAL balance for user: ${userAddress}`)
+  try {
+    return await apiCall<number>(`/blockchain/balance/${userAddress}`)
+  } catch (error) {
+    console.error('Failed to fetch user LOYAL balance:', error)
+    return 0
+  }
+}
+
+/**
+ * Verifies a claim code via API before blockchain processing.
+ * @param claimCode The claim code to verify.
+ * @returns A promise that resolves with redemption details or null if invalid.
+ */
+export async function verifyClaimCodeAPI(claimCode: string): Promise<any> {
+  console.log(`Verifying claim code via API: ${claimCode}`)
+  try {
+    return await apiCall<any>('/redemptions/verify', {
+      method: 'POST',
+      body: JSON.stringify({ claimCode })
+    })
+  } catch (error) {
+    console.error('Failed to verify claim code via API:', error)
+    throw new Error('Failed to verify claim code. Please try again.')
+  }
 }
 
 // Simulates fetching some data from the API.
 export async function fetchSomeData() {
-  return new Promise((resolve) => setTimeout(() => resolve({ message: "Data from API" }), 100)) // Reduced delay for faster loading
+  try {
+    return await apiCall('/health')
+  } catch (error) {
+    console.error('Failed to fetch health data:', error)
+    return { message: "API unavailable" }
+  }
 }
-
-// Note: Merchant LOYAL balance and related functions (top-up, withdraw, reward)
-// are now handled by the API layer for rewards. The previous mockGetMerchantLoyalBalance
-// and related functions are no longer directly used for the reward system,
-// but could be adapted if a merchant also holds a general LOYAL token balance
-// separate from their reward issuance capability. For this design, we assume
-// the merchant's "balance" is implicitly managed by the reward creation/redemption flow.

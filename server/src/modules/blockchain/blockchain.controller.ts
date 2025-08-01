@@ -53,6 +53,14 @@ export class BlockchainController {
     return { address, balance };
   }
 
+  @Get('balance/:address')
+  @ApiOperation({ summary: 'Get LOYAL balance for address' })
+  @ApiResponse({ status: 200, description: 'LOYAL balance' })
+  async getBalance(@Param('address') address: string) {
+    const balance = await this.blockchainService.getLoyaltyTokenBalance(address);
+    return balance;
+  }
+
   @Get('merchant/quota/:address')
   @ApiOperation({ summary: 'Get merchant quota' })
   @ApiResponse({ status: 200, description: 'Merchant quota' })

@@ -28,7 +28,7 @@ import {
 export class RedemptionsController {
   constructor(private redemptionsService: RedemptionsService) {}
 
-  @Post('redeem')
+  @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Redeem a reward' })
@@ -65,6 +65,20 @@ export class RedemptionsController {
     return this.redemptionsService.verifyClaimCode(verifyClaimCodeDto);
   }
 
+  @Get('verify/:claimCode')
+  @ApiOperation({ summary: 'Verify claim code by path parameter' })
+  @ApiResponse({
+    status: 200,
+    description: 'Claim code verified',
+    type: RedemptionResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invalid claim code' })
+  async verifyClaimCodeByPath(
+    @Param('claimCode') claimCode: string,
+  ): Promise<RedemptionResponseDto | null> {
+    return this.redemptionsService.verifyClaimCode({ claimCode });
+  }
+
   @Put('confirm')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -85,6 +99,22 @@ export class RedemptionsController {
     );
   }
 
+  @Put(':id/confirm')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Confirm claim by redemption ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Claim confirmed successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Redemption not found' })
+  async confirmClaimById(
+    @Request() req,
+    @Param('id') id: string,
+  ): Promise<void> {
+    return this.redemptionsService.confirmClaimById(req.user.userId, id);
+  }
+
   @Get('user')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -96,6 +126,19 @@ export class RedemptionsController {
   })
   async getUserRedemptions(@Request() req): Promise<RedemptionResponseDto[]> {
     return this.redemptionsService.getUserRedemptions(req.user.userId);
+  }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get user redemptions by user ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of user redemptions',
+    type: [RedemptionResponseDto],
+  })
+  async getUserRedemptionsById(
+    @Param('userId') userId: string,
+  ): Promise<RedemptionResponseDto[]> {
+    return this.redemptionsService.getUserRedemptions(userId);
   }
 
   @Get('merchant')
@@ -111,5 +154,18 @@ export class RedemptionsController {
     @Request() req,
   ): Promise<RedemptionResponseDto[]> {
     return this.redemptionsService.getMerchantRedemptions(req.user.userId);
+  }
+
+  @Get('merchant/:merchantAddress')
+  @ApiOperation({ summary: 'Get merchant redemptions by merchant address' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of merchant redemptions',
+    type: [RedemptionResponseDto],
+  })
+  async getMerchantRedemptionsByAddress(
+    @Param('merchantAddress') merchantAddress: string,
+  ): Promise<RedemptionResponseDto[]> {
+    return this.redemptionsService.getMerchantRedemptions(merchantAddress);
   }
 }

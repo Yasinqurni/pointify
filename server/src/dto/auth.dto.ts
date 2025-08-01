@@ -56,3 +56,77 @@ export class MerchantRegisterDto {
   @IsOptional()
   logoUrl?: string;
 }
+
+export class CheckMerchantDto {
+  @ApiProperty({ description: 'Merchant wallet address to check' })
+  @IsString()
+  @IsNotEmpty()
+  walletAddress: string;
+}
+
+export class CheckUserDto {
+  @ApiProperty({ description: 'User wallet address to check' })
+  @IsString()
+  @IsNotEmpty()
+  walletAddress: string;
+}
+
+export class MerchantResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  walletAddress: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  description?: string;
+
+  @ApiProperty()
+  logoUrl?: string;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class UserResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  walletAddress: string;
+
+  @ApiProperty()
+  email?: string;
+
+  @ApiProperty()
+  username?: string;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class RefreshTokenDto {
+  @ApiProperty({ description: 'Wallet address' })
+  @IsString()
+  @IsNotEmpty()
+  walletAddress: string;
+
+  @ApiProperty({ description: 'Signature of the message' })
+  @IsString()
+  @IsNotEmpty()
+  signature: string;
+
+  @ApiProperty({ description: 'Message that was signed' })
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+}

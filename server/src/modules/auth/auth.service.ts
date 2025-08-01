@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../common/prisma.service';
 import { LoginDto, RegisterDto, MerchantRegisterDto } from '../../dto/auth.dto';
@@ -81,7 +81,7 @@ export class AuthService {
         walletAddress,
         email,
         username,
-        loyaltyPoints: 0,
+        // loyaltyPoints removed - now using blockchain balance
       },
     });
 
@@ -117,9 +117,6 @@ export class AuthService {
         name,
         description,
         logoUrl,
-        idrxBalance: 0,
-        loyalBalance: 0,
-        totalRewarded: 0,
       },
     });
 
@@ -134,5 +131,51 @@ export class AuthService {
       merchant,
       userType: 'merchant',
     };
+  }
+
+  async checkMerchant(walletAddress: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress },
+    });
+
+    return {
+      exists: !!merchant,
+      merchant: merchant || null,
+    };
+  }
+
+  async getMerchantByWallet(walletAddress: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress },
+    });
+
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+
+    return merchant;
+  }
+
+  async checkUser(walletAddress: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { walletAddress },
+    });
+
+    return {
+      exists: !!user,
+      user: user || null,
+    };
+  }
+
+  async getUserByWallet(walletAddress: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { walletAddress },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
 }

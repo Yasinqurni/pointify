@@ -49,8 +49,8 @@ export default function LoyaltySettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Points Calculation */}
-        <Card className="shadow-xl glass-card border-2 border-green-500/20 hover:border-green-500/40 transition-all duration-300">
-          <CardHeader className="bg-gradient-to-r from-green-500/5 to-transparent rounded-t-lg">
+        <Card className="shadow-lg border border-border">
+          <CardHeader className="bg-muted/50">
             <CardTitle className="flex items-center gap-3 text-xl">
               <div className="p-2 rounded-full bg-green-500/10">
                 <Calculator className="h-6 w-6 text-green-500" />
@@ -111,8 +111,8 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Reward Settings */}
-        <Card className="shadow-xl glass-card border-2 border-purple-500/20 hover:border-purple-500/40 transition-all duration-300">
-          <CardHeader className="bg-gradient-to-r from-purple-500/5 to-transparent rounded-t-lg">
+        <Card className="shadow-lg border border-border">
+          <CardHeader className="bg-muted/50">
             <CardTitle className="flex items-center gap-3 text-xl">
               <div className="p-2 rounded-full bg-purple-500/10">
                 <Gift className="h-6 w-6 text-purple-500" />
@@ -161,8 +161,8 @@ export default function LoyaltySettingsPage() {
       </div>
 
       {/* Summary */}
-      <Card className="shadow-xl glass-card border-2 border-orange-500/20 hover:border-orange-500/40 transition-all duration-300">
-        <CardHeader className="bg-gradient-to-r from-orange-500/5 to-transparent rounded-t-lg">
+      <Card className="shadow-lg border border-border">
+        <CardHeader className="bg-muted/50">
           <CardTitle className="flex items-center gap-3 text-xl">
             <div className="p-2 rounded-full bg-orange-500/10">
               <Settings className="h-6 w-6 text-orange-500" />
@@ -172,17 +172,17 @@ export default function LoyaltySettingsPage() {
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-4 rounded-xl bg-gradient-to-r from-green-500/10 to-green-500/5 border border-green-500/20">
+            <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <div className="font-bold text-green-600 mb-1">Points Rate</div>
               <div className="text-sm text-muted-foreground">
                 {loyaltyRules.pointsPerDollar} point per ${loyaltyRules.pointsPerRupiah.toLocaleString()} IDR
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-blue-500/5 border border-blue-500/20">
+            <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <div className="font-bold text-blue-600 mb-1">Minimum Purchase</div>
               <div className="text-sm text-muted-foreground">${loyaltyRules.minimumPurchase} for points</div>
             </div>
-            <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-purple-500/5 border border-purple-500/20">
+            <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <div className="font-bold text-purple-600 mb-1">Points Expiration</div>
               <div className="text-sm text-muted-foreground">{loyaltyRules.expirationDays} days</div>
             </div>
@@ -192,7 +192,7 @@ export default function LoyaltySettingsPage() {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-3">
+        <Button onClick={handleSave} className="flex items-center gap-2 px-8 py-3">
           <Save className="h-5 w-5" />
           Save Loyalty Rules
         </Button>

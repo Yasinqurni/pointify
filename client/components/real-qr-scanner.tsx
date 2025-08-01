@@ -19,8 +19,11 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
   const [isPaused, setIsPaused] = useState(false)
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const isMountedRef = useRef(true)
 
   const startScanner = async () => {
+    if (!isMountedRef.current) return
+
     try {
       // Check for camera permission
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -30,6 +33,12 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
           height: { ideal: 720 }
         } 
       })
+      
+      if (!isMountedRef.current) {
+        // Component was unmounted while getting permission
+        stream.getTracks().forEach(track => track.stop())
+        return
+      }
       
       streamRef.current = stream
       
@@ -47,6 +56,8 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
           undefined, // Use default camera
           videoRef.current,
           (result, error) => {
+            if (!isMountedRef.current) return
+            
             if (result && !isPaused) {
               console.log("QR Code detected:", result.getText())
               onScan(result.getText())
@@ -62,6 +73,8 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
         )
       }
     } catch (error: any) {
+      if (!isMountedRef.current) return
+      
       console.error("Camera permission denied:", error)
       setHasPermission(false)
       setError("Camera access denied. Please allow camera access to scan QR codes.")
@@ -73,6 +86,7 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
 
   const stopCamera = () => {
     console.log("Stopping camera...")
+    
     // Stop QR reader
     if (codeReaderRef.current) {
       try {
@@ -119,7 +133,7 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
   }
 
   const resumeScanner = () => {
-    if (videoRef.current && streamRef.current) {
+    if (videoRef.current && streamRef.current && isMountedRef.current) {
       setIsPaused(false)
       setIsScanning(true)
       
@@ -130,6 +144,8 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
         undefined,
         videoRef.current,
         (result, error) => {
+          if (!isMountedRef.current) return
+          
           if (result && !isPaused) {
             console.log("QR Code detected:", result.getText())
             onScan(result.getText())
@@ -147,39 +163,9 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
 
   const handleClose = () => {
     console.log("Closing camera...")
-    
-    // Force stop all camera operations
-    if (codeReaderRef.current) {
-      try {
-        codeReaderRef.current.reset()
-        codeReaderRef.current = null
-      } catch (error) {
-        console.log("QR reader already stopped")
-      }
-    }
-    
-    // Stop all video tracks immediately
-    if (videoRef.current && videoRef.current.srcObject) {
-      const videoStream = videoRef.current.srcObject as MediaStream
-      videoStream.getTracks().forEach(track => {
-        console.log("Force stopping video track:", track.kind)
-        track.stop()
-      })
-      videoRef.current.srcObject = null
-    }
-    
-    // Stop the stream we created
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        console.log("Force stopping stream track:", track.kind)
-        track.stop()
-      })
-      streamRef.current = null
-    }
+    stopCamera()
     
     // Reset all states
-    setIsScanning(false)
-    setIsPaused(false)
     setHasPermission(null)
     setError(null)
     
@@ -190,77 +176,13 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     startScanner()
 
     return () => {
       console.log("Component cleanup: force stopping camera")
-      
-      // Force stop all camera operations
-      if (codeReaderRef.current) {
-        try {
-          codeReaderRef.current.reset()
-          codeReaderRef.current = null
-        } catch (error) {
-          console.log("QR reader already stopped")
-        }
-      }
-      
-      // Stop all video tracks immediately
-      if (videoRef.current && videoRef.current.srcObject) {
-        const videoStream = videoRef.current.srcObject as MediaStream
-        videoStream.getTracks().forEach(track => {
-          console.log("Force stopping video track on cleanup:", track.kind)
-          track.stop()
-        })
-        videoRef.current.srcObject = null
-      }
-      
-      // Stop the stream we created
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
-          console.log("Force stopping stream track on cleanup:", track.kind)
-          track.stop()
-        })
-        streamRef.current = null
-      }
-      
-      // Reset all states
-      setIsScanning(false)
-      setIsPaused(false)
-      setHasPermission(null)
-      setError(null)
-    }
-  }, [])
-
-  // Additional cleanup effect for component unmount
-  useEffect(() => {
-    return () => {
-      console.log("Component unmounting: stopping camera")
-      if (codeReaderRef.current) {
-        try {
-          codeReaderRef.current.reset()
-        } catch (error) {
-          console.log("QR reader already stopped")
-        }
-        codeReaderRef.current = null
-      }
-      
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
-          console.log("Stopping track on unmount:", track.kind)
-          track.stop()
-        })
-        streamRef.current = null
-      }
-      
-      if (videoRef.current && videoRef.current.srcObject) {
-        const videoStream = videoRef.current.srcObject as MediaStream
-        videoStream.getTracks().forEach(track => {
-          console.log("Stopping video track on unmount:", track.kind)
-          track.stop()
-        })
-        videoRef.current.srcObject = null
-      }
+      isMountedRef.current = false
+      stopCamera()
     }
   }, [])
 
@@ -274,37 +196,13 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
   const handleRetry = () => {
     setError(null)
     setHasPermission(null)
-    
-    // Stop current camera
-    if (codeReaderRef.current) {
-      try {
-        codeReaderRef.current.reset()
-      } catch (error) {
-        console.log("QR reader already stopped")
-      }
-      codeReaderRef.current = null
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        console.log("Stopping track on retry:", track.kind)
-        track.stop()
-      })
-      streamRef.current = null
-    }
-    
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach(track => {
-        console.log("Stopping video track on retry:", track.kind)
-        track.stop()
-      })
-      videoRef.current.srcObject = null
-    }
+    stopCamera()
     
     // Re-run the effect
     setTimeout(() => {
-      startScanner()
+      if (isMountedRef.current) {
+        startScanner()
+      }
     }, 100)
   }
 

@@ -1,7 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { useWalletStore } from "@/lib/store"
-import { fetchRewards, type Reward } from "@/lib/api" // Removed createReward import
+import { fetchMerchantRewards, type Reward } from "@/lib/api" // Use merchant-specific rewards
+import { authService } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
@@ -25,13 +26,35 @@ export default function MerchantRewardsPage() {
   useEffect(() => {
     const loadRewards = async () => {
       if (walletAddress && userType === "merchant") {
+        // Check if user is authenticated first
+        const isAuthenticated = authService.isAuthenticated()
+        console.log("🔍 User authenticated:", isAuthenticated)
+        
+        if (!isAuthenticated) {
+          console.log("🔍 User not authenticated, skipping rewards fetch")
+          setErrorRewards("Please login first to view your rewards.")
+          setLoadingRewards(false)
+          return
+        }
+        
         setLoadingRewards(true)
         setErrorRewards(null)
         try {
-          const data = await fetchRewards()
-          setRewards(data)
+          console.log("🔍 About to call fetchMerchantRewards()")
+          const response = await fetchMerchantRewards()
+          console.log("🔍 fetchMerchantRewards returned:", response)
+          // Ensure data is an array
+          if (response && response.data && Array.isArray(response.data)) {
+            console.log("🔍 Setting rewards:", response.data)
+            setRewards(response.data)
+          } else {
+            console.error("❌ Invalid rewards data:", response)
+            setRewards([])
+            setErrorRewards("Invalid rewards data received.")
+          }
         } catch (err) {
-          console.error("Failed to fetch rewards:", err)
+          console.error("❌ Failed to fetch rewards:", err)
+          setRewards([])
           setErrorRewards("Failed to load rewards. Please try again.")
         } finally {
           setLoadingRewards(false)
@@ -88,8 +111,8 @@ export default function MerchantRewardsPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
-      <Card className="w-full max-w-4xl bg-card shadow-lg glass-card">
+    <main className="flex flex-1 flex-col p-4 md:p-8 pt-32 w-full">
+      <Card className="w-full bg-card shadow-lg glass-card">
         <CardHeader>
           <div className="flex items-center justify-between mb-4">
             <Button variant="ghost" size="sm" className="p-2 hover:bg-primary/10" onClick={() => window.history.back()}>
@@ -124,7 +147,7 @@ export default function MerchantRewardsPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rewards.map((reward) => (
+                  {Array.isArray(rewards) && rewards.map((reward) => (
                     <Card key={reward.id} className="overflow-hidden hover:shadow-lg transition-all duration-200 border-2 hover:border-primary/30">
                       <div className="relative">
                         <img

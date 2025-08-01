@@ -5,6 +5,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// @seed="tsx prisma/seed.ts"
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -18,9 +20,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Loyalty points balance (off-chain)
-  loyaltyPoints Int @default(0)
-  
   // Relations
   pointTransactions PointTransaction[]
   redemptions       Redemption[]
@@ -37,11 +36,6 @@ model Merchant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Merchant quota management
-  idrxBalance    Float @default(0)
-  loyalBalance   Float @default(0)
-  totalRewarded  Float @default(0)
-  
   // Relations
   rewards        Reward[]
   pointTransactions PointTransaction[]
