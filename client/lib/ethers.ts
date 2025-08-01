@@ -137,7 +137,7 @@ export async function mockRewardUser(merchantAddress: string, userAddress: strin
     mockPointReceptionLogs.push({
       id: `reception-${uuidv4()}`,
       userId: userAddress,
-      merchantName: "Pointify Cafe", // Mock merchant name for the log
+      merchantName: "Merchant", // Generic merchant name for the log
       pointsReceived: amount,
       receivedDate: new Date().toISOString().slice(0, 19).replace("T", " "),
       transactionHash: `0xmocktx${uuidv4().slice(0, 8)}`,
@@ -195,8 +195,10 @@ export async function mockWithdrawLoyal(merchantAddress: string, amount: number)
 export async function mockGetUserLoyalBalance(userAddress: string): Promise<number> {
   console.log(`Simulating fetching LOYAL balance for user: ${userAddress}`)
   return new Promise((resolve) => {
-    // Remove artificial delay for instant response
-    resolve(mockLoyalBalances[userAddress] || 0)
+    // If the user address is not in mock data, give them a default balance for testing
+    const balance = mockLoyalBalances[userAddress] || 100 // Default 100 LOYAL points for new users
+    console.log(`User ${userAddress} has ${balance} LOYAL points`)
+    resolve(balance)
   })
 }
 

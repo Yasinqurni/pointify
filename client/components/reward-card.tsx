@@ -18,6 +18,7 @@ interface RewardCardProps {
   onRedeem?: (rewardId: string) => void
   userPoints?: number // Optional: for displaying if user has enough points
   isClaimed?: boolean // New prop: to indicate if the reward has been claimed
+  hasPendingRedemption?: boolean // New prop: to indicate if user has pending redemption for this reward
 }
 
 export function RewardCard({
@@ -32,10 +33,11 @@ export function RewardCard({
   onRedeem,
   userPoints,
   isClaimed = false, // Default to false
+  hasPendingRedemption = false, // Default to false
 }: RewardCardProps) {
   const hasEnoughPoints = userPoints !== undefined ? userPoints >= requiredPoints : true
   const isExpired = new Date(expiryDate) < new Date()
-  const isDisabled = !hasEnoughPoints || isExpired || !onRedeem || isClaimed
+  const isDisabled = !hasEnoughPoints || isExpired || !onRedeem || isClaimed || hasPendingRedemption
 
   return (
     <Card className="w-full max-w-sm overflow-hidden rounded-lg shadow-lg transition-all hover:shadow-xl glass-card">
@@ -84,7 +86,11 @@ export function RewardCard({
       </CardContent>
       <CardFooter className="p-4 pt-0">
         <Button className="w-full" onClick={() => onRedeem?.(id)} disabled={isDisabled}>
-          {isClaimed ? "Already Claimed" : isExpired ? "Expired" : "Redeem Now"}
+          {isClaimed ? "Already Claimed" : 
+           hasPendingRedemption ? "Pending Redemption" : 
+           isExpired ? "Expired" : 
+           !hasEnoughPoints ? "Not Enough Points" : 
+           "Redeem Now"}
         </Button>
       </CardFooter>
     </Card>

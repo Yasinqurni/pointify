@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useWalletStore } from "@/lib/store"
-import { mockGetMerchantIDRXBalance, mockTopUpLoyal } from "@/lib/ethers"
+import { mockTopUpLoyal } from "@/lib/ethers"
+import { balanceService } from "@/lib/balance-service"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,8 +27,7 @@ export default function TopUpLoyalPage() {
       if (walletAddress && userType === "merchant") {
         setLoadingIDRX(true)
         try {
-          const balance = await mockGetMerchantIDRXBalance(walletAddress)
-          setMerchantIDRXBalance(balance)
+          await balanceService.refreshBalances(walletAddress, 'merchant')
         } catch (error) {
           console.error("Failed to fetch IDRX balance:", error)
           setMerchantIDRXBalance(0)
@@ -76,7 +76,8 @@ export default function TopUpLoyalPage() {
 
       // Update balances in store
       setMerchantIDRXBalance((merchantIDRXBalance || 0) - amount)
-      setMerchantLoyalBalance((prevLoyalBalance) => (prevLoyalBalance || 0) + amount)
+      const newLoyalBalance = await balanceService.getLoyalBalance(walletAddress, 'merchant')
+      setMerchantLoyalBalance(newLoyalBalance + amount)
 
       toast({
         title: "Top-Up Successful!",

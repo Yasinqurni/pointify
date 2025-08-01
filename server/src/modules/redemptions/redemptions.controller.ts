@@ -48,11 +48,14 @@ export class RedemptionsController {
     return this.redemptionsService.redeemReward(
       req.user.userId,
       redeemRewardDto,
+      req.user.walletAddress, // Pass wallet address for auto-user creation
     );
   }
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify claim code' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify claim code (merchant only)' })
   @ApiResponse({
     status: 200,
     description: 'Claim code verified',
@@ -60,13 +63,16 @@ export class RedemptionsController {
   })
   @ApiResponse({ status: 404, description: 'Invalid claim code' })
   async verifyClaimCode(
+    @Request() req,
     @Body() verifyClaimCodeDto: VerifyClaimCodeDto,
   ): Promise<RedemptionResponseDto> {
-    return this.redemptionsService.verifyClaimCode(verifyClaimCodeDto);
+    return this.redemptionsService.verifyClaimCode(req.user.userId, verifyClaimCodeDto);
   }
 
   @Get('verify/:claimCode')
-  @ApiOperation({ summary: 'Verify claim code by path parameter' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify claim code by path parameter (merchant only)' })
   @ApiResponse({
     status: 200,
     description: 'Claim code verified',
@@ -74,9 +80,10 @@ export class RedemptionsController {
   })
   @ApiResponse({ status: 404, description: 'Invalid claim code' })
   async verifyClaimCodeByPath(
+    @Request() req,
     @Param('claimCode') claimCode: string,
   ): Promise<RedemptionResponseDto | null> {
-    return this.redemptionsService.verifyClaimCode({ claimCode });
+    return this.redemptionsService.verifyClaimCode(req.user.userId, { claimCode });
   }
 
   @Put('confirm')

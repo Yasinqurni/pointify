@@ -14,6 +14,7 @@ const rewards_module_1 = require("./modules/rewards/rewards.module");
 const redemptions_module_1 = require("./modules/redemptions/redemptions.module");
 const points_module_1 = require("./modules/points/points.module");
 const blockchain_module_1 = require("./modules/blockchain/blockchain.module");
+const loyalty_settings_module_1 = require("./modules/loyalty-settings/loyalty-settings.module");
 const prisma_service_1 = require("./common/prisma.service");
 let AppModule = class AppModule {
 };
@@ -29,7 +30,7 @@ exports.AppModule = AppModule = __decorate([
             redemptions_module_1.RedemptionsModule,
             points_module_1.PointsModule,
             blockchain_module_1.BlockchainModule,
-            blockchain_module_1.BlockchainModule,
+            loyalty_settings_module_1.LoyaltySettingsModule,
         ],
         providers: [prisma_service_1.PrismaService],
     })

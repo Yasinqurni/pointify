@@ -98,6 +98,30 @@
   * {
     @apply border-border;
   }
+  
+  /* Mobile scrolling fixes */
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+  
+  body {
+    height: 100%;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  }
+  
+  /* Fix for iOS Safari viewport issues */
+  @supports (-webkit-touch-callout: none) {
+    .min-h-screen {
+      min-height: -webkit-fill-available;
+    }
+  }
+  
+  /* Ensure proper scrolling on mobile */
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+  }
   body {
     @apply bg-background text-foreground;
   }

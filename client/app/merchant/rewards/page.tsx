@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import { useWalletStore } from "@/lib/store"
-import { fetchMerchantRewards, type Reward } from "@/lib/api" // Use merchant-specific rewards
+import { fetchMerchantRewardsProtected, type Reward } from "@/lib/api" // Use the protected function
 import { authService } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,22 +26,13 @@ export default function MerchantRewardsPage() {
   useEffect(() => {
     const loadRewards = async () => {
       if (walletAddress && userType === "merchant") {
-        // Check if user is authenticated first
-        const isAuthenticated = authService.isAuthenticated()
-        console.log("🔍 User authenticated:", isAuthenticated)
-        
-        if (!isAuthenticated) {
-          console.log("🔍 User not authenticated, skipping rewards fetch")
-          setErrorRewards("Please login first to view your rewards.")
-          setLoadingRewards(false)
-          return
-        }
-        
+        console.log("🔍 Loading rewards for merchant:", walletAddress)
         setLoadingRewards(true)
         setErrorRewards(null)
+        
         try {
           console.log("🔍 About to call fetchMerchantRewards()")
-          const response = await fetchMerchantRewards()
+          const response = await fetchMerchantRewardsProtected()
           console.log("🔍 fetchMerchantRewards returned:", response)
           // Ensure data is an array
           if (response && response.data && Array.isArray(response.data)) {

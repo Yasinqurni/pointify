@@ -4,6 +4,8 @@ import { Plus_Jakarta_Sans } from "next/font/google" // Changed font
 import { cn } from "@/lib/utils"
 import { Toaster } from "@/components/ui/toaster"
 import { AppLayoutWrapper } from "@/components/app-layout-wrapper"
+import { CameraCleanupProvider } from "@/components/camera-cleanup-provider"
+import { CameraEmergencyStop } from "@/components/camera-emergency-stop"
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   // Changed font variable name
@@ -23,8 +25,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-plus-jakarta-sans antialiased", plusJakartaSans.variable)}>
-        <AppLayoutWrapper>{children}</AppLayoutWrapper>
-        <Toaster />
+        <CameraCleanupProvider>
+          <AppLayoutWrapper>{children}</AppLayoutWrapper>
+          <Toaster />
+          <CameraEmergencyStop />
+        </CameraCleanupProvider>
       </body>
     </html>
   )

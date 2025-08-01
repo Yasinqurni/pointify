@@ -5,6 +5,7 @@ export declare class RewardsController {
     constructor(rewardsService: RewardsService);
     getAllRewards(): Promise<RewardResponseDto[]>;
     getMerchantRewards(req: any): Promise<RewardResponseDto[]>;
+    getMerchantRewardsByWalletAddress(walletAddress: string): Promise<RewardResponseDto[]>;
     getMerchantData(merchantId: string): Promise<{
         name: string;
         address: string;

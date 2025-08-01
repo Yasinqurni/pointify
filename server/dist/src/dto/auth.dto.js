@@ -38,6 +38,8 @@ __decorate([
 ], LoginDto.prototype, "message", void 0);
 class RegisterDto {
     walletAddress;
+    signature;
+    message;
     email;
     username;
 }
@@ -48,6 +50,18 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "walletAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'User signature for wallet verification' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], RegisterDto.prototype, "signature", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Message that was signed' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], RegisterDto.prototype, "message", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'User email (optional)' }),
     (0, class_validator_1.IsEmail)(),
@@ -62,6 +76,8 @@ __decorate([
 ], RegisterDto.prototype, "username", void 0);
 class MerchantRegisterDto {
     walletAddress;
+    signature;
+    message;
     name;
     description;
     logoUrl;
@@ -73,6 +89,18 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], MerchantRegisterDto.prototype, "walletAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'User signature for wallet verification' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], MerchantRegisterDto.prototype, "signature", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Message that was signed' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], MerchantRegisterDto.prototype, "message", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Merchant name' }),
     (0, class_validator_1.IsString)(),

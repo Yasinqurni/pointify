@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { createReward, type Reward } from "@/lib/api"
+import { createReward, getLoyaltySettings, type Reward, type CreateRewardRequest } from "@/lib/api"
 import { useWalletStore } from "@/lib/store"
 
 interface CreateRewardModalProps {
@@ -29,6 +29,7 @@ export function CreateRewardModal({ isOpen, onClose, onRewardCreated }: CreateRe
   const [imageUrl, setImageUrl] = useState("")
   const [expiryDate, setExpiryDate] = useState("")
   const [creatingReward, setCreatingReward] = useState(false)
+  const [defaultPointsLoaded, setDefaultPointsLoaded] = useState(false)
 
   const resetForm = () => {
     setTitle("")
@@ -36,7 +37,26 @@ export function CreateRewardModal({ isOpen, onClose, onRewardCreated }: CreateRe
     setRequiredPoints("")
     setImageUrl("")
     setExpiryDate("")
+    setDefaultPointsLoaded(false)
   }
+
+  // Load default points from loyalty settings when modal opens
+  useEffect(() => {
+    const loadDefaultPoints = async () => {
+      if (isOpen && !defaultPointsLoaded && userType === "merchant") {
+        try {
+          const settings = await getLoyaltySettings()
+          setRequiredPoints(settings.defaultRewardPoints.toString())
+          setDefaultPointsLoaded(true)
+        } catch (error) {
+          console.error("Failed to load default points:", error)
+          // Don't show error toast, just use empty default
+        }
+      }
+    }
+
+    loadDefaultPoints()
+  }, [isOpen, defaultPointsLoaded, userType])
 
   const handleCreateRewardSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,15 +80,15 @@ export function CreateRewardModal({ isOpen, onClose, onRewardCreated }: CreateRe
 
     setCreatingReward(true)
     try {
-      const newReward = await createReward({
+      const createRewardData: CreateRewardRequest = {
         title,
         description,
         imageUrl,
-        merchantName: "Your Merchant Name", // This would ideally come from merchant profile
-        merchantLogoUrl: "/placeholder.svg?height=40&width=40", // Placeholder
         requiredPoints: Number.parseInt(requiredPoints),
         expiryDate,
-      })
+      }
+      
+      const newReward = await createReward(createRewardData)
       toast({
         title: "Reward Created!",
         description: "Your new reward has been successfully added.",
@@ -76,11 +96,27 @@ export function CreateRewardModal({ isOpen, onClose, onRewardCreated }: CreateRe
       onRewardCreated(newReward) // Pass the new reward back to the parent
       resetForm()
       onClose()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create reward:", error)
+      
+      // Provide specific error messages based on the error type
+      let errorMessage = "Failed to create reward. Please try again."
+      
+      if (error.message?.includes("authentication token")) {
+        errorMessage = "Authentication expired. Please log in again."
+      } else if (error.message?.includes("401")) {
+        errorMessage = "Authentication required. Please log in again."
+      } else if (error.message?.includes("403")) {
+        errorMessage = "Access denied. Only merchants can create rewards."
+      } else if (error.message?.includes("400")) {
+        errorMessage = "Invalid reward data. Please check your inputs."
+      } else if (error.message?.includes("500")) {
+        errorMessage = "Server error. Please try again later."
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create reward. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {

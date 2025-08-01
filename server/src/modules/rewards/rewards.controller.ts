@@ -52,6 +52,17 @@ export class RewardsController {
     return this.rewardsService.getMerchantRewards(req.user.userId);
   }
 
+  @Get('merchant/wallet/:walletAddress')
+  @ApiOperation({ summary: 'Get merchant rewards by wallet address' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of merchant rewards',
+    type: [RewardResponseDto],
+  })
+  async getMerchantRewardsByWalletAddress(@Param('walletAddress') walletAddress: string): Promise<RewardResponseDto[]> {
+    return this.rewardsService.getMerchantRewardsByWalletAddress(walletAddress);
+  }
+
   @Get('merchant/:merchantId')
   @ApiOperation({ summary: 'Get merchant data by merchant ID' })
   @ApiResponse({

@@ -8,14 +8,10 @@ import { AppMerchantSidebar } from "@/components/app-merchant-sidebar"
 import { Button } from "@/components/ui/button"
 import { UserInfoModal } from "@/components/user-info-modal"
 import { MerchantRegistrationModal } from "@/components/merchant-registration-modal"
+import { NetworkStatus } from "@/components/network-status"
 import { useToast } from "@/components/ui/use-toast"
 import { authService } from "@/lib/auth"
-import {
-  mockGetMerchantIDRXBalance,
-  mockGetMerchantLoyalBalance,
-  mockGetTotalLoyalRewarded,
-  mockGetUserLoyalBalance,
-} from "@/lib/ethers"
+import { balanceService } from "@/lib/balance-service"
 import { LogOut, Wallet, User, Shield, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,6 +44,7 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [balancesLoaded, setBalancesLoaded] = useState(false)
   const [merchantFound, setMerchantFound] = useState(false)
+  const [authAttempted, setAuthAttempted] = useState(false)
 
   // Check authentication status on mount
   useEffect(() => {
@@ -80,17 +77,10 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
   useEffect(() => {
     setBalancesLoaded(false)
     setLoadingBalances(true)
+    setAuthAttempted(false) // Reset auth attempt when wallet changes
   }, [walletAddress])
 
-  // Hide registration modal when merchant data exists
-  useEffect(() => {
-    if (merchantData && showMerchantRegistration) {
-      console.log("✅ Force hiding registration modal - merchant data exists")
-      setShowMerchantRegistration(false)
-    }
-  }, [merchantData, showMerchantRegistration])
-
-  // Force hide registration modal if merchant data exists
+  // Combined effect for merchant data and registration modal
   useEffect(() => {
     if (merchantData) {
       console.log("✅ Merchant data detected, ensuring registration modal is hidden")
@@ -99,183 +89,155 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
     }
   }, [merchantData])
 
-  // Force hide registration modal if merchant is found
-  useEffect(() => {
-    if (merchantFound) {
-      console.log("✅ Merchant found, ensuring registration modal is hidden")
-      setShowMerchantRegistration(false)
-    }
-  }, [merchantFound])
-
+  // Load balances only when wallet and userType are available
   useEffect(() => {
     const loadBalances = async () => {
-      if (walletAddress && !balancesLoaded) {
+      if (walletAddress && userType && !balancesLoaded) {
         setLoadingBalances(true)
         try {
-          if (userType === "merchant") {
-            const idrx = await mockGetMerchantIDRXBalance(walletAddress)
-            const loyal = await mockGetMerchantLoyalBalance(walletAddress)
-            const totalRewarded = await mockGetTotalLoyalRewarded(walletAddress)
-            setMerchantIDRXBalance(idrx)
-            setMerchantLoyalBalance(loyal)
-            setTotalLoyalRewarded(totalRewarded)
-          } else if (userType === "user") {
-            const loyal = await mockGetUserLoyalBalance(walletAddress)
-            setUserLoyalBalance(loyal)
+          // Use the new balance service to fetch real IDRX balances
+          if (userType === 'merchant' || userType === 'user') {
+            await balanceService.refreshBalancesImmediate(walletAddress, userType)
           }
         } catch (error) {
-          console.error("Failed to load balances:", error)
-          toast({
-            title: "Error",
-            description: "Failed to load wallet balances. Please refresh.",
-            variant: "destructive",
-          })
-          setMerchantIDRXBalance(0)
-          setMerchantLoyalBalance(0)
-          setTotalLoyalRewarded(0)
-          setUserLoyalBalance(0)
+          console.error('Failed to load balances:', error)
         } finally {
           setLoadingBalances(false)
           setBalancesLoaded(true)
         }
       }
     }
-    
+
     loadBalances()
   }, [walletAddress, userType, balancesLoaded])
 
-  // Check if merchant is registered and authenticate if needed
+  // Handle authentication on client side only
   useEffect(() => {
-    const checkMerchantRegistration = async () => {
-      console.log("=== Starting merchant registration check ===")
-      console.log("walletAddress:", walletAddress)
-      console.log("userType:", userType)
-      console.log("checkingMerchant:", checkingMerchant)
-      console.log("isAuthenticating:", isAuthenticating)
-      console.log("merchantData:", merchantData)
-      console.log("showMerchantRegistration:", showMerchantRegistration)
-      
-      if (walletAddress && userType === "merchant" && !checkingMerchant && !isAuthenticating) {
-        console.log("✅ Conditions met, starting merchant registration check...")
-        setCheckingMerchant(true)
-        setMerchantData(null) // Reset merchant data to ensure fresh check
-        setShowMerchantRegistration(false) // Reset registration modal state
-        setMerchantFound(false) // Reset merchant found state
-        
-        try {
-          // Always check merchant registration first
-          console.log("🔍 Performing merchant registration check...")
-          console.log("🔍 About to call authService.checkMerchant with walletAddress:", walletAddress)
-          try {
-            const response = await authService.checkMerchant(walletAddress)
-            console.log("📋 Merchant check response:", response)
-            console.log("📋 Response type:", typeof response)
-            console.log("📋 Response keys:", Object.keys(response))
-            
-            if (response && response.data && response.data.exists && response.data.merchant) {
-              console.log("✅ Merchant exists, setting data:", response.data.merchant)
-              console.log("✅ Response.data.merchant type:", typeof response.data.merchant)
-              console.log("✅ Response.data.merchant keys:", Object.keys(response.data.merchant))
-              setMerchantData(response.data.merchant)
-              setMerchantFound(true)
-              setShowMerchantRegistration(false) // Explicitly hide registration modal
-              console.log("✅ Registration modal should be hidden now")
-              
-              // Force immediate state update
-              setTimeout(() => {
-                setShowMerchantRegistration(false)
-                setMerchantFound(true)
-              }, 0)
-              
-              return // Exit early to prevent further processing
-            } else if (response && response.data && response.data.exists === false) {
-              // Merchant not registered, show registration modal
-              console.log("❌ Merchant not registered, showing registration modal")
-              setShowMerchantRegistration(true)
-            } else {
-              // Unexpected response, assume merchant needs to register
-              console.log("❌ Unexpected response, showing registration modal")
-              console.log("❌ Response:", response)
-              setShowMerchantRegistration(true)
-            }
-          } catch (error) {
-            console.error("❌ Error in merchant check:", error)
-            setShowMerchantRegistration(true)
-          }
+    // Only run authentication on client side
+    if (typeof window === 'undefined') {
+      return
+    }
 
-          // Then check if user is authenticated
-          if (!authService.isAuthenticated()) {
-            console.log("🔐 User not authenticated, attempting login...")
-            setIsAuthenticating(true)
-            
+    const handleAuthentication = async () => {
+      if (!walletAddress || !userType || isAuthenticating || authAttempted) {
+        return
+      }
+
+      console.log("🔄 Starting authentication for:", { walletAddress, userType })
+      setIsAuthenticating(true)
+      setAuthAttempted(true)
+
+      try {
+        // Check if already authenticated
+        if (authService.isAuthenticated()) {
+          console.log("✅ Already authenticated")
+          
+          // For merchants, still check registration status
+          if (userType === "merchant") {
             try {
-              console.log("🔍 Attempting login for wallet:", walletAddress)
-              const loginResult = await authService.login(walletAddress)
-              console.log("✅ Login successful:", loginResult)
-            } catch (loginError: any) {
-              console.log("❌ Login failed:", loginError.message)
-              console.log("🔍 Checking if merchant exists...")
-              
-              // Check if merchant exists
-              const merchantCheck = await authService.checkMerchant(walletAddress)
-              console.log("🔍 Merchant check result:", merchantCheck)
-              
-              if (merchantCheck && merchantCheck.data && merchantCheck.data.exists && merchantCheck.data.merchant) {
-                console.log("✅ Merchant exists, attempting login again...")
-                // Try login again - maybe the signature was the issue
-                await authService.login(walletAddress)
+              const response = await authService.checkMerchant(walletAddress)
+              if (response?.data?.exists && response.data.merchant) {
+                setMerchantData(response.data.merchant)
+                setMerchantFound(true)
+                setShowMerchantRegistration(false)
               } else {
-                console.log("❌ Merchant not registered, showing registration modal")
                 setShowMerchantRegistration(true)
-                return
               }
-            } finally {
-              setIsAuthenticating(false)
+            } catch (error) {
+              console.error("❌ Error checking merchant:", error)
+              setShowMerchantRegistration(true)
+            }
+          }
+          return
+        }
+
+        // Try to authenticate - only merchant login now
+        console.log("🔐 Attempting merchant authentication...")
+        
+        if (userType === "merchant") {
+          // Check if merchant exists first
+          const merchantCheck = await authService.checkMerchant(walletAddress)
+          
+          if (merchantCheck?.data?.exists && merchantCheck.data.merchant) {
+            // Merchant exists, try to login
+            try {
+              const loginResult = await authService.login(walletAddress)
+              setMerchantData(merchantCheck.data.merchant)
+              setMerchantFound(true)
+              setShowMerchantRegistration(false)
+              
+              // Quick verification
+              if (!authService.isAuthenticated()) {
+                toast({
+                  title: "Authentication Error",
+                  description: "Failed to save authentication tokens. Please try again.",
+                  variant: "destructive",
+                })
+              }
+              
+            } catch (loginError: any) {
+              console.error("❌ Merchant login failed:", loginError)
+              toast({
+                title: "Login Failed",
+                description: "Failed to authenticate. Please try connecting again.",
+                variant: "destructive",
+              })
             }
           } else {
-            console.log("✅ User already authenticated")
-          }
-        } catch (error: any) {
-          console.error("❌ Failed to check merchant registration:", error)
-          
-          // Show error message to user
-          if (error.message && error.message.includes("Merchant already registered")) {
-            toast({
-              title: "Wallet Already Registered",
-              description: error.message,
-              variant: "destructive",
-            })
-          } else {
-            // For other errors, show generic message and registration modal
-            toast({
-              title: "Registration Error",
-              description: "Failed to check merchant status. Please try registering again.",
-              variant: "destructive",
-            })
+            // Merchant doesn't exist, show registration
             setShowMerchantRegistration(true)
           }
-        } finally {
-          setCheckingMerchant(false)
-          console.log("=== Finished merchant registration check ===")
-          console.log("📊 Final merchantData:", merchantData)
-          console.log("📊 Final showMerchantRegistration:", showMerchantRegistration)
         }
+      } catch (error: any) {
+        console.error("❌ Authentication process failed:", error)
+        toast({
+          title: "Authentication Error",
+          description: "An unexpected error occurred during authentication.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsAuthenticating(false)
       }
     }
 
-    checkMerchantRegistration()
-  }, [walletAddress, userType]) // Removed checkingMerchant and isAuthenticating from dependencies
+    handleAuthentication()
+  }, [walletAddress, userType, authAttempted])
+
+  // Handle redirects after authentication
+  useEffect(() => {
+    if (!walletAddress || !userType || typeof window === 'undefined') {
+      return
+    }
+
+    const currentPath = window.location.pathname
+    const isAuthenticated = authService.isAuthenticated()
+    
+    console.log("🔀 Redirect check:", { currentPath, userType, isAuthenticated, merchantData: !!merchantData })
+    
+    // Only redirect from landing page for merchants
+    if (currentPath === '/' && userType === "merchant" && isAuthenticated && merchantData) {
+      console.log("🔀 Redirecting merchant to dashboard")
+      window.location.href = '/dashboard'
+    }
+  }, [walletAddress, userType, merchantData])
 
   const handleDisconnect = () => {
     authService.logout()
     disconnectWallet()
     setIsUserInfoModalOpen(false)
+    // Redirect to landing page
+    window.location.href = "/"
   }
 
   const handleMerchantRegistrationSuccess = async (merchantData: any) => {
     console.log("Merchant registration successful:", merchantData)
     setMerchantData(merchantData)
     setShowMerchantRegistration(false)
+    
+    // Redirect to merchant dashboard after successful registration
+    if (typeof window !== 'undefined') {
+      window.location.href = '/dashboard'
+    }
     
     toast({
       title: "Registration Successful!",
@@ -301,15 +263,13 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
     )
   }
 
+
   // Don't show registration modal if merchant data exists
   if (merchantData) {
-    console.log("✅ Merchant data exists, proceeding to main app")
+    // Merchant data exists, proceed to main app
   }
 
-  console.log("🔍 Modal check - showMerchantRegistration:", showMerchantRegistration, "merchantFound:", merchantFound, "merchantData:", merchantData)
-
   if (showMerchantRegistration && !merchantFound && !merchantData) {
-    console.log("❌ Showing registration modal - no merchant data")
     return (
       <MerchantRegistrationModal
         walletAddress={walletAddress || ""}
@@ -327,7 +287,7 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
   return (
     <>
       <SidebarProvider>
-        <div className="flex h-screen w-full min-h-screen">
+        <div className="flex min-h-screen w-full">
           {userType === "merchant" && (
             <AppMerchantSidebar />
           )}
@@ -341,6 +301,7 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
                 </div>
               </div>
               <div className="flex items-center gap-1 sm:gap-2">
+                <NetworkStatus />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -364,7 +325,7 @@ export function AppLayoutWrapper({ children }: AppLayoutWrapperProps) {
               </div>
             </header>
             <SidebarInset>
-              <div className="flex flex-1 flex-col overflow-hidden w-full min-w-0">
+              <div className="flex flex-1 flex-col w-full min-w-0">
                 {children}
               </div>
             </SidebarInset>

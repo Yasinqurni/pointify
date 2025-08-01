@@ -54,6 +54,33 @@ export class RewardsService {
     }));
   }
 
+  async getMerchantRewardsByWalletAddress(walletAddress: string): Promise<RewardResponseDto[]> {
+    // First find the merchant by wallet address
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress },
+    });
+
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+
+    // Then get their rewards
+    const rewards = await this.prisma.reward.findMany({
+      where: { merchantId: merchant.id },
+      include: {
+        merchant: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rewards.map((reward) => ({
+      ...reward,
+      imageUrl: reward.imageUrl || undefined,
+      merchantName: reward.merchant.name,
+      merchantLogoUrl: reward.merchant.logoUrl || undefined,
+    }));
+  }
+
   async getAllRewards(): Promise<RewardResponseDto[]> {
     const rewards = await this.prisma.reward.findMany({
       where: { isActive: true },

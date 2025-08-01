@@ -5,6 +5,7 @@ import { RewardsModule } from './modules/rewards/rewards.module';
 import { RedemptionsModule } from './modules/redemptions/redemptions.module';
 import { PointsModule } from './modules/points/points.module';
 import { BlockchainModule } from './modules/blockchain/blockchain.module';
+import { LoyaltySettingsModule } from './modules/loyalty-settings/loyalty-settings.module';
 import { PrismaService } from './common/prisma.service';
 
 @Module({
@@ -17,7 +18,7 @@ import { PrismaService } from './common/prisma.service';
     RedemptionsModule,
     PointsModule,
     BlockchainModule,
-    BlockchainModule,
+    LoyaltySettingsModule,
   ],
   providers: [PrismaService],
 })

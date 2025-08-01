@@ -7,6 +7,7 @@ export declare class RewardsService {
     constructor(prisma: PrismaService, blockchainService: BlockchainService);
     createReward(merchantId: string, createRewardDto: CreateRewardDto): Promise<RewardResponseDto>;
     getMerchantRewards(merchantId: string): Promise<RewardResponseDto[]>;
+    getMerchantRewardsByWalletAddress(walletAddress: string): Promise<RewardResponseDto[]>;
     getAllRewards(): Promise<RewardResponseDto[]>;
     getRewardById(rewardId: string): Promise<RewardResponseDto>;
     updateReward(merchantId: string, rewardId: string, updateRewardDto: UpdateRewardDto): Promise<RewardResponseDto>;

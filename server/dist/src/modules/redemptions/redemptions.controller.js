@@ -24,13 +24,13 @@ let RedemptionsController = class RedemptionsController {
         this.redemptionsService = redemptionsService;
     }
     async redeemReward(req, redeemRewardDto) {
-        return this.redemptionsService.redeemReward(req.user.userId, redeemRewardDto);
+        return this.redemptionsService.redeemReward(req.user.userId, redeemRewardDto, req.user.walletAddress);
     }
-    async verifyClaimCode(verifyClaimCodeDto) {
-        return this.redemptionsService.verifyClaimCode(verifyClaimCodeDto);
+    async verifyClaimCode(req, verifyClaimCodeDto) {
+        return this.redemptionsService.verifyClaimCode(req.user.userId, verifyClaimCodeDto);
     }
-    async verifyClaimCodeByPath(claimCode) {
-        return this.redemptionsService.verifyClaimCode({ claimCode });
+    async verifyClaimCodeByPath(req, claimCode) {
+        return this.redemptionsService.verifyClaimCode(req.user.userId, { claimCode });
     }
     async confirmClaim(req, confirmClaimDto) {
         return this.redemptionsService.confirmClaim(req.user.userId, confirmClaimDto);
@@ -74,30 +74,36 @@ __decorate([
 ], RedemptionsController.prototype, "redeemReward", null);
 __decorate([
     (0, common_1.Post)('verify'),
-    (0, swagger_1.ApiOperation)({ summary: 'Verify claim code' }),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify claim code (merchant only)' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: 'Claim code verified',
         type: redemption_dto_1.RedemptionResponseDto,
     }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Invalid claim code' }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [redemption_dto_1.VerifyClaimCodeDto]),
+    __metadata("design:paramtypes", [Object, redemption_dto_1.VerifyClaimCodeDto]),
     __metadata("design:returntype", Promise)
 ], RedemptionsController.prototype, "verifyClaimCode", null);
 __decorate([
     (0, common_1.Get)('verify/:claimCode'),
-    (0, swagger_1.ApiOperation)({ summary: 'Verify claim code by path parameter' }),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify claim code by path parameter (merchant only)' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: 'Claim code verified',
         type: redemption_dto_1.RedemptionResponseDto,
     }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Invalid claim code' }),
-    __param(0, (0, common_1.Param)('claimCode')),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('claimCode')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], RedemptionsController.prototype, "verifyClaimCodeByPath", null);
 __decorate([

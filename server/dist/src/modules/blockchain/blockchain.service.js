@@ -241,6 +241,18 @@ let BlockchainService = BlockchainService_1 = class BlockchainService {
             return false;
         }
     }
+    async redeemLoyaltyPoints(walletAddress, amount) {
+        try {
+            this.logger.log(`Redeeming ${amount} LOYAL points from ${walletAddress}`);
+            const transactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+            this.logger.log(`Redemption successful. Transaction hash: ${transactionHash}`);
+            return transactionHash;
+        }
+        catch (error) {
+            this.logger.error(`Error redeeming loyalty points: ${error.message}`);
+            throw new Error('Failed to redeem points on blockchain');
+        }
+    }
 };
 exports.BlockchainService = BlockchainService;
 exports.BlockchainService = BlockchainService = BlockchainService_1 = __decorate([

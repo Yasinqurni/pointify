@@ -33,6 +33,8 @@ model Merchant {
   name      String
   description String?
   logoUrl   String?
+  status    MerchantStatus @default(PENDING)
+  transactionHash String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -40,8 +42,33 @@ model Merchant {
   rewards        Reward[]
   pointTransactions PointTransaction[]
   redemptions   Redemption[]
+  loyaltySettings LoyaltySettings?
   
   @@map("merchants")
+}
+
+model LoyaltySettings {
+  id        String   @id @default(cuid())
+  
+  // Points calculation rules
+  pointsPerDollar     Float   @default(1.0)
+  pointsPerRupiah     Int     @default(10000)
+  autoCalculate       Boolean @default(true)
+  minimumPurchase     Float   @default(5.0)
+  
+  // Reward settings
+  defaultRewardPoints Int     @default(10)
+  expirationDays      Int     @default(365)
+  allowNegativeBalance Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  merchantId String @unique
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@map("loyalty_settings")
 }
 
 model Reward {
@@ -118,4 +145,10 @@ enum RedemptionStatus {
   CLAIMED
   EXPIRED
   CANCELLED
-} 
+}
+
+enum MerchantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

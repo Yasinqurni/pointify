@@ -55,7 +55,7 @@ export class PointsController {
     type: UserBalanceResponseDto,
   })
   async getUserBalance(@Request() req): Promise<UserBalanceResponseDto> {
-    return this.pointsService.getUserBalance(req.user.userId);
+    return this.pointsService.getUserBalance(req.user.userId, req.user.walletAddress);
   }
 
   @Get('balance/merchant')

@@ -83,7 +83,7 @@ export default function MerchantLoyaltyPage() {
 
     setIsRedeeming(true)
     try {
-      const redemptionResult = await redeemReward(walletAddress, selectedReward.id)
+      const redemptionResult = await redeemReward(selectedReward.id)
 
       toast({
         title: "Reward Redeemed!",

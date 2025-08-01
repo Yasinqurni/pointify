@@ -25,11 +25,23 @@ let PointsService = class PointsService {
         if (points <= 0) {
             throw new common_1.BadRequestException('Points must be positive');
         }
-        const user = await this.prisma.user.findUnique({
+        let user = await this.prisma.user.findUnique({
             where: { walletAddress: userWalletAddress },
         });
         if (!user) {
-            throw new common_1.NotFoundException('User not found');
+            try {
+                user = await this.prisma.user.create({
+                    data: {
+                        walletAddress: userWalletAddress,
+                        email: null,
+                        username: null,
+                    },
+                });
+            }
+            catch (error) {
+                console.error(`Failed to auto-create user: ${error.message}`);
+                throw new common_1.NotFoundException('User not found and could not be created');
+            }
         }
         const merchant = await this.prisma.merchant.findUnique({
             where: { id: merchantId },
@@ -59,11 +71,26 @@ let PointsService = class PointsService {
             redemptionId: transaction.redemptionId || undefined,
         };
     }
-    async getUserBalance(userId) {
-        const user = await this.prisma.user.findUnique({
+    async getUserBalance(userId, walletAddress) {
+        let user = await this.prisma.user.findUnique({
             where: { id: userId },
         });
-        if (!user) {
+        if (!user && walletAddress) {
+            try {
+                user = await this.prisma.user.create({
+                    data: {
+                        walletAddress: walletAddress,
+                        email: null,
+                        username: null,
+                    },
+                });
+            }
+            catch (error) {
+                console.error(`Failed to auto-create user: ${error.message}`);
+                throw new common_1.NotFoundException('User not found and could not be created');
+            }
+        }
+        else if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
         const blockchainBalance = await this.blockchainService.getLoyaltyTokenBalance(user.walletAddress);

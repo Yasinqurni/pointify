@@ -6,7 +6,7 @@ export declare class PointsService {
     private blockchainService;
     constructor(prisma: PrismaService, blockchainService: BlockchainService);
     issuePoints(merchantId: string, issuePointsDto: IssuePointsDto): Promise<PointsTransactionResponseDto>;
-    getUserBalance(userId: string): Promise<UserBalanceResponseDto>;
+    getUserBalance(userId: string, walletAddress?: string): Promise<UserBalanceResponseDto>;
     getMerchantBalance(merchantId: string): Promise<MerchantBalanceResponseDto>;
     getUserTransactions(userId: string): Promise<PointsTransactionResponseDto[]>;
     getMerchantTransactions(merchantId: string): Promise<PointsTransactionResponseDto[]>;

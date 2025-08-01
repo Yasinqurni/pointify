@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, Param, UseGuards, Request, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, MerchantRegisterDto, CheckMerchantDto, MerchantResponseDto, CheckUserDto, UserResponseDto, RefreshTokenDto } from '../../dto/auth.dto';
@@ -18,7 +18,17 @@ export class AuthController {
     description: 'Invalid signature or user not found',
   })
   async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+    console.log("🔍 Backend: /auth/login endpoint hit")
+    console.log("🔍 Backend: Request body:", {
+      walletAddress: loginDto.walletAddress,
+      hasSignature: !!loginDto.signature,
+      hasMessage: !!loginDto.message
+    })
+    
+    const result = await this.authService.login(loginDto);
+    
+    console.log("✅ Backend: /auth/login endpoint returning response")
+    return result;
   }
 
   @Post('register/user')
@@ -37,6 +47,30 @@ export class AuthController {
     return this.authService.registerMerchant(merchantRegisterDto);
   }
 
+  @Put('merchant/status')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update merchant status' })
+  @ApiResponse({ status: 200, description: 'Merchant status updated successfully' })
+  async updateMerchantStatus(
+    @Body() updateStatusDto: { walletAddress: string; status: 'APPROVED' | 'REJECTED'; transactionHash?: string }
+  ) {
+    return this.authService.updateMerchantStatus(
+      updateStatusDto.walletAddress,
+      updateStatusDto.status,
+      updateStatusDto.transactionHash
+    );
+  }
+
+  @Post('register/merchant/token')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register new merchant with existing token' })
+  @ApiResponse({ status: 201, description: 'Merchant registered successfully' })
+  @ApiResponse({ status: 401, description: 'Merchant already exists' })
+  async registerMerchantWithToken(@Body() merchantData: any, @Request() req) {
+    return this.authService.registerMerchantWithToken(merchantData, req.user);
+  }
+
   @Post('check/merchant')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Check if merchant is registered' })
@@ -45,12 +79,24 @@ export class AuthController {
     return this.authService.checkMerchant(checkMerchantDto.walletAddress);
   }
 
-  @Get('merchant/:walletAddress')
-  @ApiOperation({ summary: 'Get merchant by wallet address' })
+  @Get('merchant/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get authenticated merchant profile (Protected)' })
   @ApiResponse({ status: 200, description: 'Merchant found', type: MerchantResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user is not a merchant' })
   @ApiResponse({ status: 404, description: 'Merchant not found' })
-  async getMerchantByWallet(@Param('walletAddress') walletAddress: string) {
-    return this.authService.getMerchantByWallet(walletAddress);
+  async getMerchantProfile(@Request() req) {
+    return this.authService.getMerchantProfile(req.user);
+  }
+
+  @Get('merchant/:walletAddress/public')
+  @ApiOperation({ summary: 'Get public merchant info by wallet address' })
+  @ApiResponse({ status: 200, description: 'Merchant found' })
+  @ApiResponse({ status: 404, description: 'Merchant not found' })
+  async getPublicMerchantInfo(@Param('walletAddress') walletAddress: string) {
+    return this.authService.getPublicMerchantInfo(walletAddress);
   }
 
   @Post('check/user')
@@ -59,14 +105,6 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User check completed' })
   async checkUser(@Body() checkUserDto: CheckUserDto) {
     return this.authService.checkUser(checkUserDto.walletAddress);
-  }
-
-  @Get('user/:walletAddress')
-  @ApiOperation({ summary: 'Get user by wallet address' })
-  @ApiResponse({ status: 200, description: 'User found', type: UserResponseDto })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async getUserByWallet(@Param('walletAddress') walletAddress: string) {
-    return this.authService.getUserByWallet(walletAddress);
   }
 
   @Post('refresh')

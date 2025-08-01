@@ -7,7 +7,10 @@ import { Home, Store, Award, Settings, Sparkles, RefreshCcw, Package, Gift, Wall
 import { useWalletStore } from "@/lib/store"
 import { UserInfoModal } from "@/components/user-info-modal"
 import { useToast } from "@/components/ui/use-toast"
-import { mockGetMerchantIDRXBalance, mockGetMerchantLoyalBalance, mockGetTotalLoyalRewarded } from "@/lib/ethers"
+import { balanceService } from "@/lib/balance-service"
+import { fetchMerchantData } from "@/lib/api"
+import { authService } from "@/lib/auth"
+import { getPltBalance } from "@/lib/plt-swap-contract"
 import { motion } from "framer-motion"
 
 import {
@@ -36,22 +39,40 @@ const MerchantSidebarContent = () => {
   const { toast } = useToast()
   const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false)
   const [loadingBalances, setLoadingBalances] = useState(true)
+  const [merchantData, setMerchantData] = useState<any>(null)
+  const [loadingMerchantData, setLoadingMerchantData] = useState(true)
+  const [authErrorHandled, setAuthErrorHandled] = useState(false)
+  const [realPltBalance, setRealPltBalance] = useState<number>(0)
+  const [loadingPltBalance, setLoadingPltBalance] = useState(true)
 
   useEffect(() => {
     const loadBalances = async () => {
       if (walletAddress && userType === "merchant") {
         setLoadingBalances(true)
         try {
-          const idrx = await mockGetMerchantIDRXBalance(walletAddress)
-          const loyal = await mockGetMerchantLoyalBalance(walletAddress)
-          const totalRewarded = await mockGetTotalLoyalRewarded(walletAddress)
-          setMerchantIDRXBalance(idrx)
-          setMerchantLoyalBalance(loyal)
-          setTotalLoyalRewarded(totalRewarded)
+          console.log(`🔄 Sidebar: Loading balances for merchant: ${walletAddress}`)
+          
+          // Use the new balance service to fetch real IDRX balances
+          await balanceService.refreshBalancesImmediate(walletAddress, 'merchant')
+          
+          // Fetch real PLT balance from blockchain
+          setLoadingPltBalance(true)
+          try {
+            const pltBalance = await getPltBalance(walletAddress)
+            setRealPltBalance(pltBalance)
+            console.log('✅ Sidebar: PLT balance loaded:', pltBalance)
+          } catch (pltError) {
+            console.error('Failed to load PLT balance:', pltError)
+            setRealPltBalance(0)
+          } finally {
+            setLoadingPltBalance(false)
+          }
+          
+          console.log('✅ Sidebar: Balances loaded successfully')
         } catch (error) {
           console.error("Failed to load merchant balances:", error)
           toast({
-            title: "Error",
+            title: "Balance Error",
             description: "Failed to load merchant balances. Please refresh.",
             variant: "destructive",
           })
@@ -64,7 +85,48 @@ const MerchantSidebarContent = () => {
       }
     }
     loadBalances()
-  }, [walletAddress, userType, setMerchantIDRXBalance, setMerchantLoyalBalance, setTotalLoyalRewarded, toast])
+  }, [walletAddress, userType, toast])
+
+  // Load merchant data
+  useEffect(() => {
+    const loadMerchantData = async () => {
+      if (walletAddress && userType === "merchant" && !authErrorHandled) {
+        setLoadingMerchantData(true)
+        try {
+          const data = await fetchMerchantData()
+          setMerchantData(data)
+        } catch (error: any) {
+          console.error("Failed to load merchant data:", error)
+          
+          // If it's an authentication error, redirect to login
+          if (error.message?.includes("Authentication required") || 
+              error.message?.includes("authentication token") ||
+              error.message?.includes("401")) {
+            console.log("🔍 Authentication error in sidebar, redirecting to login")
+            setAuthErrorHandled(true) // Prevent further attempts
+            authService.logout()
+            // Add guard to prevent infinite redirects
+            if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+              window.location.href = '/'
+            }
+            return
+          }
+          
+          // For other errors, set default merchant data
+          setMerchantData({
+            name: "Merchant",
+            description: "",
+            logoUrl: "",
+            walletAddress: walletAddress || "",
+            createdAt: new Date().toISOString(),
+          })
+        } finally {
+          setLoadingMerchantData(false)
+        }
+      }
+    }
+    loadMerchantData()
+  }, [walletAddress, userType, authErrorHandled])
 
   const navItems = [
     { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -77,7 +139,7 @@ const MerchantSidebarContent = () => {
 
   return (
     <>
-      <SidebarHeader className="border-b border-border/50 bg-gradient-to-b from-background to-background/80 backdrop-blur-sm">
+      <SidebarHeader className="border-b border-border/50 bg-background">
         <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg hover:bg-accent/50 transition-colors">
           <div className="relative">
             <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
@@ -86,7 +148,9 @@ const MerchantSidebarContent = () => {
             <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 h-2 w-2 sm:h-3 sm:w-3 rounded-full bg-green-500 border-2 border-background shadow-sm"></div>
           </div>
           <div className="hidden sm:block">
-            <span className="font-bold text-base sm:text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Merchant</span>
+            <span className="font-bold text-base sm:text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              {loadingMerchantData ? "Loading..." : (merchantData?.name || "Merchant")}
+            </span>
             <p className="text-xs text-muted-foreground">Dashboard</p>
           </div>
         </Link>
@@ -127,7 +191,7 @@ const MerchantSidebarContent = () => {
         </SidebarMenu>
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-border/50 bg-gradient-to-t from-background to-background/80 backdrop-blur-sm p-3 sm:p-4">
+      <SidebarFooter className="border-t border-border/50 bg-background p-3 sm:p-4">
         <div className="space-y-3 sm:space-y-4">
           {/* Quick Stats */}
           <div className="space-y-2 sm:space-y-3">
@@ -146,19 +210,32 @@ const MerchantSidebarContent = () => {
                 {loadingBalances ? (
                   <div className="h-2.5 w-8 sm:h-3 sm:w-12 animate-pulse rounded bg-muted" />
                 ) : (
-                  <span className="text-xs sm:text-sm font-bold text-blue-600">{merchantIDRXBalance?.toFixed(2) || "0.00"}</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs sm:text-sm font-bold text-blue-600">
+                      {merchantIDRXBalance?.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      }) || "0.00"}
+                    </span>
+                    <span className="text-xs text-green-600 font-medium">Real Balance</span>
+                  </div>
                 )}
               </div>
               
               <div className="flex items-center justify-between p-1.5 sm:p-2 rounded-lg bg-gradient-to-r from-green-500/10 to-green-600/10 border border-green-500/20">
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-500"></div>
-                  <span className="text-xs text-muted-foreground">LOYAL</span>
+                  <span className="text-xs text-muted-foreground">PLT</span>
                 </div>
-                {loadingBalances ? (
+                {loadingPltBalance ? (
                   <div className="h-2.5 w-8 sm:h-3 sm:w-12 animate-pulse rounded bg-muted" />
                 ) : (
-                  <span className="text-xs sm:text-sm font-bold text-green-600">{merchantLoyalBalance?.toFixed(2) || "0.00"}</span>
+                  <span className="text-xs sm:text-sm font-bold text-green-600">
+                    {realPltBalance.toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </span>
                 )}
               </div>
             </div>
@@ -173,7 +250,12 @@ const MerchantSidebarContent = () => {
             {loadingBalances ? (
               <div className="h-3 w-12 sm:h-4 sm:w-16 animate-pulse rounded bg-muted" />
             ) : (
-              <span className="text-sm sm:text-lg font-bold text-purple-600">{totalLoyalRewarded?.toFixed(2) || "0.00"}</span>
+              <span className="text-sm sm:text-lg font-bold text-purple-600">
+                {totalLoyalRewarded?.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                }) || "0.00"}
+              </span>
             )}
           </div>
         </div>
@@ -196,7 +278,7 @@ const MerchantSidebarContent = () => {
 
 export function AppMerchantSidebar() {
   return (
-    <Sidebar className="border-r border-border/50 bg-gradient-to-b from-background via-background to-background/95 backdrop-blur-sm">
+    <Sidebar className="border-r border-border/50 bg-background w-64 md:w-64">
       <MerchantSidebarContent />
       <SidebarRail />
     </Sidebar>

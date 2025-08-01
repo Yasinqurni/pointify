@@ -5,11 +5,15 @@ export declare class LoginDto {
 }
 export declare class RegisterDto {
     walletAddress: string;
+    signature: string;
+    message: string;
     email?: string;
     username?: string;
 }
 export declare class MerchantRegisterDto {
     walletAddress: string;
+    signature: string;
+    message: string;
     name: string;
     description?: string;
     logoUrl?: string;

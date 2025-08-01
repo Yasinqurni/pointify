@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import { web3Service } from "./web3"
+import { xellarService, LISK_SEPOLIA_CONFIG } from "./xellar"
 
 type UserType = "user" | "merchant" | null
 
@@ -37,16 +37,23 @@ export const useWalletStore = create<WalletState>()(
       merchantLoyalBalance: null, // Initialize
       totalLoyalRewarded: null, // Initialize
       userLoyalBalance: null,
-      connectWallet: (address: string, type: UserType, networkId?: number, ethBalance?: string) =>
+      connectWallet: (address: string, type: UserType, networkId?: number, ethBalance?: string) => {
+        console.log("🏪 Store connectWallet called with:")
+        console.log("  - address:", address)
+        console.log("  - type:", type)
+        console.log("  - networkId:", networkId)
+        console.log("  - ethBalance:", ethBalance)
         set({ 
           walletAddress: address, 
           isConnected: true, 
           userType: type,
           networkId: networkId || null,
           ethBalance: ethBalance || null
-        }),
+        })
+        console.log("✅ Store state updated")
+      },
       disconnectWallet: () => {
-        web3Service.removeListeners()
+        xellarService.removeListeners()
         set({
           walletAddress: null,
           isConnected: false,
@@ -64,7 +71,7 @@ export const useWalletStore = create<WalletState>()(
       setTotalLoyalRewarded: (total: number) => set({ totalLoyalRewarded: total }),
       setUserLoyalBalance: (balance: number) => set({ userLoyalBalance: balance }),
       setNetworkId: (networkId: number) => set({ networkId }),
-      setEthBalance: (balance: string) => set({ ethBalance }),
+      setEthBalance: (balance: string) => set({ ethBalance: balance }),
       restoreConnection: async () => {
         const state = get()
         if (!state.walletAddress || !state.isConnected) {
@@ -73,12 +80,15 @@ export const useWalletStore = create<WalletState>()(
 
         try {
           // Try to reconnect to the wallet
-          const { address, provider } = await web3Service.connect()
+          const { address, provider } = await xellarService.connect()
           
           if (address.toLowerCase() === state.walletAddress.toLowerCase()) {
             // Same wallet, restore connection
-            const network = await web3Service.getNetwork()
-            const balance = await web3Service.getBalance(address)
+            const network = await xellarService.getNetwork()
+            const balance = await xellarService.getBalance(address)
+            
+            // Check if we're on the correct network
+            const isOnCorrectNetwork = network.chainId === LISK_SEPOLIA_CONFIG.chainId
             
             set({
               isConnected: true,
@@ -87,7 +97,7 @@ export const useWalletStore = create<WalletState>()(
             })
             
             // Set up listeners
-            web3Service.onAccountsChanged((accounts: string[]) => {
+            xellarService.onAccountsChanged((accounts: string[]) => {
               if (accounts.length === 0) {
                 get().disconnectWallet()
               } else if (accounts[0].toLowerCase() !== state.walletAddress?.toLowerCase()) {
@@ -95,8 +105,15 @@ export const useWalletStore = create<WalletState>()(
               }
             })
             
-            web3Service.onChainChanged((chainId: string) => {
-              set({ networkId: parseInt(chainId, 16) })
+            xellarService.onChainChanged((chainId: string) => {
+              const newChainId = parseInt(chainId, 16)
+              set({ networkId: newChainId })
+              
+              // If user switched to wrong network, try to switch back
+              if (newChainId !== LISK_SEPOLIA_CONFIG.chainId) {
+                console.warn('User switched to wrong network, attempting to switch back...')
+                // The xellarService will handle the automatic switch back
+              }
             })
             
             return true

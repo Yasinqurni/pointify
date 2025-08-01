@@ -29,13 +29,25 @@ export class PointsService {
       throw new BadRequestException('Points must be positive');
     }
 
-    // Find user by wallet address
-    const user = await this.prisma.user.findUnique({
+    // Find user by wallet address, create if doesn't exist
+    let user = await this.prisma.user.findUnique({
       where: { walletAddress: userWalletAddress },
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      // Auto-create user record for points issuance
+      try {
+        user = await this.prisma.user.create({
+          data: {
+            walletAddress: userWalletAddress,
+            email: null,
+            username: null,
+          },
+        });
+      } catch (error) {
+        console.error(`Failed to auto-create user: ${error.message}`);
+        throw new NotFoundException('User not found and could not be created');
+      }
     }
 
     // Get merchant details
@@ -81,12 +93,26 @@ export class PointsService {
     };
   }
 
-  async getUserBalance(userId: string): Promise<UserBalanceResponseDto> {
-    const user = await this.prisma.user.findUnique({
+  async getUserBalance(userId: string, walletAddress?: string): Promise<UserBalanceResponseDto> {
+    let user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
 
-    if (!user) {
+    if (!user && walletAddress) {
+      // Auto-create user record if we have wallet address
+      try {
+        user = await this.prisma.user.create({
+          data: {
+            walletAddress: walletAddress,
+            email: null,
+            username: null,
+          },
+        });
+      } catch (error) {
+        console.error(`Failed to auto-create user: ${error.message}`);
+        throw new NotFoundException('User not found and could not be created');
+      }
+    } else if (!user) {
       throw new NotFoundException('User not found');
     }
 

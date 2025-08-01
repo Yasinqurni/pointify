@@ -1,8 +1,8 @@
 // Real API calls to the NestJS server
 // This replaces the mock API calls with actual HTTP requests
 
-import { v4 as uuidv4 } from "uuid"
-import { authService } from "./auth"
+import { authService, getAccessTokenSafely } from "./auth"
+import { useWalletStore } from "./store"
 
 // --- Data Models ---
 export interface Reward {
@@ -16,6 +16,41 @@ export interface Reward {
   expiryDate: string // YYYY-MM-DD
 }
 
+// Type for creating rewards (only fields that should be sent to server)
+export interface CreateRewardRequest {
+  title: string
+  description: string
+  imageUrl: string
+  requiredPoints: number
+  expiryDate: string
+  isActive?: boolean
+}
+
+// Loyalty Settings types
+export interface LoyaltySettings {
+  id: string
+  pointsPerDollar: number
+  pointsPerRupiah: number
+  autoCalculate: boolean
+  minimumPurchase: number
+  defaultRewardPoints: number
+  expirationDays: number
+  allowNegativeBalance: boolean
+  merchantId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UpdateLoyaltySettingsRequest {
+  pointsPerDollar?: number
+  pointsPerRupiah?: number
+  autoCalculate?: boolean
+  minimumPurchase?: number
+  defaultRewardPoints?: number
+  expirationDays?: number
+  allowNegativeBalance?: boolean
+}
+
 export interface Redemption {
   id: string
   userId: string
@@ -23,7 +58,7 @@ export interface Redemption {
   rewardTitle: string
   merchantName: string
   redeemedPoints: number
-  redeemedDate: string // YYYY-MM-DD HH:MM:SS
+  redeemedDate: string
   claimCode: string
   status: "pending" | "claimed" | "expired"
 }
@@ -33,8 +68,8 @@ export interface PointReception {
   userId: string
   merchantName: string
   pointsReceived: number
-  receivedDate: string // YYYY-MM-DD HH:MM:SS
-  transactionHash: string // Mock transaction hash
+  receivedDate: string
+  transactionHash: string
 }
 
 // Authentication interfaces
@@ -57,13 +92,6 @@ export interface LoginRequest {
   message: string
 }
 
-export interface RegisterUserRequest {
-  walletAddress: string
-  signature: string
-  message: string
-  name?: string
-}
-
 export interface RegisterMerchantRequest {
   walletAddress: string
   signature: string
@@ -79,7 +107,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 // Helper function for API calls
 async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
-  console.log(`🌐 Making API call to: ${url}`)
   
   try {
     const response = await fetch(url, {
@@ -109,9 +136,31 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 }
 
+// Helper function to handle authentication redirects
+function handleAuthRedirect() {
+  console.log('Authentication required, redirecting to login')
+  authService.logout()
+  
+  // Add a guard to prevent infinite redirects
+  if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+    console.log('Redirecting to login page')
+    window.location.href = '/'
+  } else {
+    console.log('Already on login page, not redirecting')
+  }
+}
+
 // Helper function for authenticated API calls
 async function authenticatedApiCall<T>(endpoint: string, token: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
+  
+  // Validate token before making request
+  if (!token || token.trim() === '') {
+    console.error("❌ authenticatedApiCall: No access token provided for", endpoint)
+    throw new Error("Authentication required: No access token available")
+  }
+
+  console.log(`🔍 authenticatedApiCall: Making request to ${endpoint}`)
   
   try {
     const response = await fetch(url, {
@@ -124,12 +173,22 @@ async function authenticatedApiCall<T>(endpoint: string, token: string, options:
     })
 
     if (!response.ok) {
-      throw new Error(`API call failed: ${response.status} ${response.statusText}`)
+      const errorText = await response.text().catch(() => 'Unknown error')
+      console.error(`❌ API call failed: ${response.status} ${response.statusText} - ${errorText}`)
+      
+      // If unauthorized, the token might be invalid
+      if (response.status === 401) {
+        console.error("❌ 401 Unauthorized - token may be invalid or expired")
+      }
+      
+      throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    return response.json()
+    const result = await response.json()
+    console.log(`✅ authenticatedApiCall: Success for ${endpoint}`)
+    return result
   } catch (error) {
-    console.warn(`Server unavailable for authenticated call: ${endpoint}`, error)
+    console.error(`❌ Authenticated API call failed for ${endpoint}:`, error)
     throw error
   }
 }
@@ -142,17 +201,32 @@ async function authenticatedApiCall<T>(endpoint: string, token: string, options:
  * @returns Authentication response with tokens
  */
 export async function loginWithWallet(loginData: LoginRequest): Promise<{ data: AuthResponse }> {
-  console.log(`Logging in with wallet: ${loginData.walletAddress}`)
+  console.log("🔍 API: loginWithWallet called with:", loginData.walletAddress)
+  
   try {
-    const response = await apiCall<AuthResponse>('/auth/login', {
+    console.log("🔍 API: Sending login request for merchant")
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
-      body: JSON.stringify(loginData)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(loginData),
     })
-    console.log(response, 'disini auth response')
-    return { data: response };
+
+    console.log("🔍 API: Login response status:", response.status)
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("❌ API: Login failed:", errorData)
+      throw new Error(errorData.message || `Login failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log("✅ API: Login successful:", data)
+    return { data }
   } catch (error) {
-    console.error('Failed to login:', error)
-    throw new Error('Login failed. Please try again.')
+    console.error("❌ API: Login error:", error)
+    throw error
   }
 }
 
@@ -191,72 +265,38 @@ export async function logout(accessToken: string): Promise<void> {
 }
 
 /**
- * Register new user with wallet signature
- * @param registerData User registration data with signature
- * @returns Authentication response
- */
-export async function registerUser(registerData: RegisterUserRequest): Promise<{ data: AuthResponse }> {
-  console.log(`Registering new user: ${registerData.walletAddress}`)
-  try {
-    const response = await apiCall<AuthResponse>('/auth/register/user', {
-      method: 'POST',
-      body: JSON.stringify(registerData)
-    })
-    return { data: response }
-  } catch (error) {
-    console.error('Failed to register user:', error)
-    throw new Error('User registration failed. Please try again.')
-  }
-}
-
-/**
- * Check if user exists
- * @param walletAddress The wallet address to check
- * @returns User existence status
- */
-export async function checkUser(walletAddress: string): Promise<{ exists: boolean; user?: any }> {
-  console.log(`Checking if user exists: ${walletAddress}`)
-  try {
-    return await apiCall<{ exists: boolean; user?: any }>('/auth/check/user', {
-      method: 'POST',
-      body: JSON.stringify({ walletAddress })
-    })
-  } catch (error) {
-    console.error('Failed to check user:', error)
-    return { exists: false }
-  }
-}
-
-/**
- * Get user by wallet address
- * @param walletAddress The wallet address
- * @returns User data
- */
-export async function getUserByAddress(walletAddress: string): Promise<any> {
-  console.log(`Getting user by address: ${walletAddress}`)
-  try {
-    return await apiCall<any>(`/auth/user/${walletAddress}`)
-  } catch (error) {
-    console.error('Failed to get user:', error)
-    throw new Error('Failed to get user data.')
-  }
-}
-
-/**
  * Register new merchant with wallet signature
  * @param registerData Merchant registration data with signature
  * @returns Authentication response
  */
 export async function registerMerchant(registerData: RegisterMerchantRequest): Promise<{ data: AuthResponse }> {
-  console.log(`Registering new merchant: ${registerData.walletAddress}`)
+  console.log(`🔐 Registering merchant: ${registerData.walletAddress}`)
   try {
-    const response = await apiCall<AuthResponse>('/auth/register/merchant', {
+    return await apiCall<AuthResponse>('/auth/register/merchant', {
       method: 'POST',
       body: JSON.stringify(registerData)
     })
-    return { data: response }
   } catch (error) {
-    console.error('Failed to register merchant:', error)
+    console.error('❌ Merchant registration failed:', error)
+    throw new Error('Merchant registration failed. Please try again.')
+  }
+}
+
+/**
+ * Register new merchant with existing authentication token
+ * @param registerData Merchant registration data
+ * @param token Existing authentication token
+ * @returns Authentication response
+ */
+export async function registerMerchantWithToken(registerData: any, token: string): Promise<{ data: AuthResponse }> {
+  console.log(`🔐 Registering merchant with token: ${registerData.walletAddress}`)
+  try {
+    return await authenticatedApiCall<AuthResponse>('/auth/register/merchant-with-token', token, {
+      method: 'POST',
+      body: JSON.stringify(registerData)
+    })
+  } catch (error) {
+    console.error('❌ Merchant registration with token failed:', error)
     throw new Error('Merchant registration failed. Please try again.')
   }
 }
@@ -302,6 +342,32 @@ export async function getMerchantByWallet(walletAddress: string): Promise<any> {
   }
 }
 
+export async function updateMerchantStatus(
+  walletAddress: string, 
+  status: 'APPROVED' | 'REJECTED', 
+  transactionHash?: string
+): Promise<any> {
+  console.log(`Updating merchant status: ${walletAddress} -> ${status}`)
+  try {
+    const token = await getAccessTokenSafely()
+    if (!token) {
+      throw new Error('No authentication token available')
+    }
+    
+    return await authenticatedApiCall<any>('/auth/merchant/status', token, {
+      method: 'PUT',
+      body: JSON.stringify({
+        walletAddress,
+        status,
+        transactionHash
+      })
+    })
+  } catch (error) {
+    console.error('Failed to update merchant status:', error)
+    throw new Error('Failed to update merchant status.')
+  }
+}
+
 // --- Existing API Functions ---
 
 /**
@@ -328,9 +394,33 @@ export async function fetchMerchantRewards(): Promise<{ data: Reward[] }> {
   try {
     const token = authService.getAccessToken()
     console.log("🔍 Token available:", !!token)
+    
     if (!token) {
-      throw new Error('No authentication token available')
+      console.log("🔍 No token available, trying to authenticate first...")
+      // Try to get the wallet address from the store
+      const { walletAddress } = useWalletStore.getState()
+      if (!walletAddress) {
+        throw new Error('No wallet connected')
+      }
+      
+      // Try to login first
+      try {
+        await authService.login(walletAddress)
+        console.log("🔍 Successfully authenticated, retrying fetch...")
+        // Retry the fetch after authentication
+        const newToken = authService.getAccessToken()
+        if (!newToken) {
+          throw new Error('Authentication failed')
+        }
+        const result = await authenticatedApiCall<Reward[]>('/rewards/merchant', newToken)
+        console.log("🔍 API call result:", result)
+        return { data: result }
+      } catch (authError) {
+        console.error('❌ Authentication failed:', authError)
+        throw new Error('Please login first to view your rewards.')
+      }
     }
+    
     console.log("🔍 Making authenticated API call to /rewards/merchant")
     const result = await authenticatedApiCall<Reward[]>('/rewards/merchant', token)
     console.log("🔍 API call result:", result)
@@ -342,17 +432,71 @@ export async function fetchMerchantRewards(): Promise<{ data: Reward[] }> {
 }
 
 /**
+ * Fetches rewards for a specific merchant by wallet address.
+ * @param walletAddress The merchant's wallet address
+ * @returns A promise that resolves with an array of Reward objects.
+ */
+export async function fetchMerchantRewardsByAddress(walletAddress: string): Promise<{ data: Reward[] }> {
+  console.log("🔍 Fetching rewards for merchant by address:", walletAddress)
+  try {
+    const result = await apiCall<Reward[]>(`/rewards/merchant/${walletAddress}`)
+    console.log("🔍 API call result:", result)
+    return { data: result }
+  } catch (error) {
+    console.error('❌ Failed to fetch merchant rewards by address:', error)
+    throw new Error('Failed to load rewards. Please try again.')
+  }
+}
+
+export async function fetchMerchantRewardsProtected(): Promise<{ data: Reward[] }> {
+  console.log("🔍 Fetching authenticated merchant rewards")
+  try {
+    // Get the auth token safely from localStorage
+    const token = authService.getAccessToken()
+    
+    if (!token) {
+      handleAuthRedirect()
+      throw new Error('Authentication required. Please log in.')
+    }
+
+    const result = await authenticatedApiCall<Reward[]>(`/rewards/merchant`, token)
+    console.log("🔍 Protected API call result:", result)
+    return { data: result }
+  } catch (error) {
+    console.error('❌ Failed to fetch authenticated merchant rewards:', error)
+    
+    // If it's an authentication error, redirect to login
+    if (error instanceof Error && (
+      error.message.includes('401') || 
+      error.message.includes('authentication') ||
+      error.message.includes('token')
+    )) {
+      handleAuthRedirect()
+      throw new Error('Authentication required. Please log in.')
+    }
+    
+    throw new Error('Failed to load rewards. Please try again.')
+  }
+}
+
+/**
  * A user redeeming a reward.
- * @param userId The user's wallet address.
  * @param rewardId The ID of the reward to redeem.
  * @returns A promise that resolves with the new Redemption object.
  */
-export async function redeemReward(userId: string, rewardId: string): Promise<Redemption> {
-  console.log(`Redeeming reward ${rewardId} by user ${userId}`)
+export async function redeemReward(rewardId: string): Promise<Redemption> {
+  console.log(`Redeeming reward ${rewardId} (user identified by JWT token)`)
+  
+  // Get access token for authentication (with retry logic)
+  const accessToken = authService.getAccessToken()
+  if (!accessToken) {
+    throw new Error('No access token available. Please log in again.')
+  }
+  
   try {
-    return await apiCall<Redemption>('/redemptions', {
+    return await authenticatedApiCall<Redemption>('/redemptions', accessToken, {
       method: 'POST',
-      body: JSON.stringify({ userId, rewardId }),
+      body: JSON.stringify({ rewardId }), // Only send rewardId, userId comes from JWT
     })
   } catch (error) {
     console.error('Failed to redeem reward:', error)
@@ -365,15 +509,34 @@ export async function redeemReward(userId: string, rewardId: string): Promise<Re
  * @param newRewardData The data for the new reward.
  * @returns A promise that resolves with the created Reward object.
  */
-export async function createReward(newRewardData: Omit<Reward, "id">): Promise<Reward> {
+export async function createReward(newRewardData: CreateRewardRequest): Promise<Reward> {
   console.log("Creating new reward:", newRewardData)
   try {
-    return await apiCall<Reward>('/rewards', {
+    // Get the auth token safely from localStorage
+    const token = authService.getAccessToken()
+    
+    if (!token) {
+      handleAuthRedirect()
+      throw new Error('Authentication required. Please log in.')
+    }
+
+    return await authenticatedApiCall<Reward>('/rewards', token, {
       method: 'POST',
       body: JSON.stringify(newRewardData),
     })
   } catch (error) {
     console.error('Failed to create reward:', error)
+    
+    // If it's an authentication error, redirect to login
+    if (error instanceof Error && (
+      error.message.includes('401') || 
+      error.message.includes('authentication') ||
+      error.message.includes('token')
+    )) {
+      handleAuthRedirect()
+      throw new Error('Authentication required. Please log in.')
+    }
+    
     throw error
   }
 }
@@ -395,12 +558,17 @@ export async function createReward(newRewardData: Omit<Reward, "id">): Promise<R
  * - redeemedDate: When the redemption was created
  */
 export async function verifyClaimCode(claimCode: string): Promise<Redemption | null> {
-  console.log(`Verifying claim code: ${claimCode}`)
+  // Get access token for authentication (with retry logic)
+  const accessToken = authService.getAccessToken()
+  if (!accessToken) {
+    throw new Error('No access token available. Please log in again.')
+  }
+  
   try {
-    return await apiCall<Redemption | null>(`/redemptions/verify/${claimCode}`)
+    return await authenticatedApiCall<Redemption | null>(`/redemptions/verify/${claimCode}`, accessToken)
   } catch (error) {
     console.error('Failed to verify claim code:', error)
-    throw new Error('Server is unavailable. Please try again later.')
+    throw new Error('Invalid claim code or code does not belong to your store.')
   }
 }
 
@@ -457,8 +625,15 @@ export async function fetchUserPointReceptionLogs(userId: string): Promise<Point
  */
 export async function fetchMerchantRedemptionLogs(): Promise<Redemption[]> {
   console.log("Fetching all merchant redemption logs...")
+  
+  // Get access token for authentication (with retry logic)
+  const accessToken = getAccessTokenSafely()
+  if (!accessToken) {
+    throw new Error('No access token available. Please log in again.')
+  }
+  
   try {
-    return await apiCall<Redemption[]>('/redemptions/merchant')
+    return await authenticatedApiCall<Redemption[]>('/redemptions/merchant', accessToken)
   } catch (error) {
     console.error('Failed to fetch merchant redemption logs:', error)
     return []
@@ -485,18 +660,36 @@ export async function fetchMerchantDashboardData(merchantId: string) {
  * @param merchantId The merchant's ID.
  * @returns A promise that resolves with the merchant's data.
  */
-export async function fetchMerchantData(merchantId: string) {
-  console.log(`Fetching data for merchant: ${merchantId}`)
+export async function fetchMerchantData(merchantId?: string) {
+  console.log(`Fetching authenticated merchant data`)
   try {
-    return await apiCall(`/rewards/merchant/${merchantId}`)
+    // Get the auth token safely from localStorage 
+    const token = getAccessTokenSafely()
+    
+    console.log("🔍 fetchMerchantData - token check:", token ? "Token exists" : "No token")
+    
+    // Check for authentication token
+    if (!token) {
+      console.log("🔍 No token found, authentication required")
+      throw new Error('Authentication required. Please log in.')
+    }
+
+    const merchantData = await authenticatedApiCall(`/auth/merchant/profile`, token)
+    console.log('✅ Merchant data fetched:', merchantData)
+    return merchantData
   } catch (error) {
     console.error('Failed to fetch merchant data:', error)
-    return {
-      name: "Unknown Merchant",
-      address: "",
-      loyaltyProgram: "",
-      rewards: [],
+    
+    // If it's an authentication error, redirect to login
+    if (error instanceof Error && (
+      error.message.includes('401') || 
+      error.message.includes('authentication') ||
+      error.message.includes('token')
+    )) {
+      throw new Error('Authentication required. Please log in.')
     }
+    
+    throw error
   }
 }
 
@@ -580,14 +773,19 @@ export async function mockGetUserLoyalBalance(userAddress: string): Promise<numb
 }
 
 /**
- * Verifies a claim code via API before blockchain processing.
+ * Verifies a claim code via API before blockchain processing (merchant only).
  * @param claimCode The claim code to verify.
  * @returns A promise that resolves with redemption details or null if invalid.
  */
 export async function verifyClaimCodeAPI(claimCode: string): Promise<any> {
-  console.log(`Verifying claim code via API: ${claimCode}`)
+  // Get access token for authentication
+  const accessToken = await getAccessTokenSafely()
+  if (!accessToken) {
+    throw new Error('No access token available. Please log in again.')
+  }
+  
   try {
-    return await apiCall<any>('/redemptions/verify', {
+    return await authenticatedApiCall<any>('/redemptions/verify', accessToken, {
       method: 'POST',
       body: JSON.stringify({ claimCode })
     })
@@ -604,5 +802,51 @@ export async function fetchSomeData() {
   } catch (error) {
     console.error('Failed to fetch health data:', error)
     return { message: "API unavailable" }
+  }
+}
+
+// === Loyalty Settings API ===
+
+/**
+ * Gets the loyalty settings for the authenticated merchant.
+ * @returns A promise that resolves with the loyalty settings.
+ */
+export async function getLoyaltySettings(): Promise<LoyaltySettings> {
+  try {
+    const token = await getAccessTokenSafely()
+    
+    if (!token) {
+      handleAuthRedirect()
+      throw new Error('Authentication required. Please log in.')
+    }
+
+    return await authenticatedApiCall<LoyaltySettings>('/loyalty-settings', token)
+  } catch (error) {
+    console.error("Failed to get loyalty settings:", error)
+    throw error
+  }
+}
+
+/**
+ * Updates the loyalty settings for the authenticated merchant.
+ * @param settings The updated loyalty settings.
+ * @returns A promise that resolves with the updated loyalty settings.
+ */
+export async function updateLoyaltySettings(settings: UpdateLoyaltySettingsRequest): Promise<LoyaltySettings> {
+  try {
+    const token = await getAccessTokenSafely()
+    
+    if (!token) {
+      handleAuthRedirect()
+      throw new Error('Authentication required. Please log in.')
+    }
+
+    return await authenticatedApiCall<LoyaltySettings>('/loyalty-settings', token, {
+      method: 'PUT',
+      body: JSON.stringify(settings)
+    })
+  } catch (error) {
+    console.error("Failed to update loyalty settings:", error)
+    throw error
   }
 }

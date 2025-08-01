@@ -53,6 +53,27 @@ let RewardsService = class RewardsService {
             merchantLogoUrl: reward.merchant.logoUrl || undefined,
         }));
     }
+    async getMerchantRewardsByWalletAddress(walletAddress) {
+        const merchant = await this.prisma.merchant.findUnique({
+            where: { walletAddress },
+        });
+        if (!merchant) {
+            throw new common_1.NotFoundException('Merchant not found');
+        }
+        const rewards = await this.prisma.reward.findMany({
+            where: { merchantId: merchant.id },
+            include: {
+                merchant: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        return rewards.map((reward) => ({
+            ...reward,
+            imageUrl: reward.imageUrl || undefined,
+            merchantName: reward.merchant.name,
+            merchantLogoUrl: reward.merchant.logoUrl || undefined,
+        }));
+    }
     async getAllRewards() {
         const rewards = await this.prisma.reward.findMany({
             where: { isActive: true },

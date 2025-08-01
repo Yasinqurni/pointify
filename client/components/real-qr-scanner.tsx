@@ -85,39 +85,93 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
   }
 
   const stopCamera = () => {
-    console.log("Stopping camera...")
+    console.log("🔴 Stopping camera...")
     
-    // Stop QR reader
+    // STEP 1: Stop QR reader FIRST and more aggressively
     if (codeReaderRef.current) {
       try {
+        // Try multiple cleanup methods for ZXing
         codeReaderRef.current.reset()
+        if (typeof codeReaderRef.current.stopContinuousDecode === 'function') {
+          codeReaderRef.current.stopContinuousDecode()
+        }
+        if (typeof codeReaderRef.current.stopAsyncDecode === 'function') {
+          codeReaderRef.current.stopAsyncDecode()
+        }
+        console.log("✅ QR reader stopped")
       } catch (error) {
-        console.log("QR reader already stopped")
+        console.log("ℹ️ QR reader cleanup error (expected):", error)
       }
       codeReaderRef.current = null
     }
     
-    // Stop video stream
+    // STEP 2: Stop ALL tracks immediately (multiple approaches)
+    const allStreams: MediaStream[] = []
+    
+    // Collect video element stream
     if (videoRef.current && videoRef.current.srcObject) {
       const videoStream = videoRef.current.srcObject as MediaStream
-      videoStream.getTracks().forEach(track => {
-        console.log("Stopping track:", track.kind)
-        track.stop()
-      })
-      videoRef.current.srcObject = null
+      allStreams.push(videoStream)
     }
     
-    // Stop the stream we created
+    // Collect our stored stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        console.log("Stopping stream track:", track.kind)
-        track.stop()
+      allStreams.push(streamRef.current)
+    }
+    
+    // Stop all tracks from all collected streams
+    allStreams.forEach((stream, index) => {
+      stream.getTracks().forEach(track => {
+        console.log(`🔴 Force stopping track ${track.kind} from stream ${index}, state:`, track.readyState)
+        if (track.readyState === 'live') {
+          try {
+            track.stop()
+            console.log(`✅ Track ${track.kind} stopped`)
+          } catch (error) {
+            console.log(`⚠️ Error stopping track ${track.kind}:`, error)
+          }
+        }
       })
-      streamRef.current = null
+    })
+    
+    // STEP 3: Clear video element completely
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause()
+        videoRef.current.srcObject = null
+        videoRef.current.src = ""
+        videoRef.current.load() // Force reload to clear any cached streams
+        console.log("✅ Video element completely cleared")
+      } catch (error) {
+        console.log("⚠️ Video element cleanup error:", error)
+      }
+    }
+    
+    // STEP 4: Clear our stream reference
+    streamRef.current = null
+    
+    // STEP 5: Global stream cleanup (find any orphaned streams)
+    try {
+      const allVideoElements = document.querySelectorAll('video')
+      allVideoElements.forEach((video, index) => {
+        if (video.srcObject) {
+          const stream = video.srcObject as MediaStream
+          stream.getTracks().forEach(track => {
+            if (track.readyState === 'live') {
+              console.log(`🔴 GLOBAL: Found orphaned track ${track.kind} on video ${index}`)
+              track.stop()
+            }
+          })
+          video.srcObject = null
+        }
+      })
+    } catch (error) {
+      console.log("⚠️ Global cleanup error:", error)
     }
     
     setIsScanning(false)
     setIsPaused(false)
+    console.log("✅ Camera completely stopped")
   }
 
   const pauseScanner = () => {
@@ -162,17 +216,77 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
   }
 
   const handleClose = () => {
-    console.log("Closing camera...")
+    console.log("🔴 Closing camera...")
+    
+    // IMMEDIATE aggressive stop
     stopCamera()
     
-    // Reset all states
-    setHasPermission(null)
-    setError(null)
+    // Add multiple safety checks with delays
+    setTimeout(() => {
+      console.log("🔴 Safety check 1: Looking for lingering tracks...")
+      
+      // Check our stream ref
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          if (track.readyState === 'live') {
+            console.log("🔴 EMERGENCY: Stopping lingering stream track:", track.kind)
+            track.stop()
+          }
+        })
+      }
+      
+      // Check video element
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach(track => {
+          if (track.readyState === 'live') {
+            console.log("🔴 EMERGENCY: Stopping lingering video track:", track.kind)
+            track.stop()
+          }
+        })
+        videoRef.current.srcObject = null
+      }
+      
+      // Global check
+      document.querySelectorAll('video').forEach(video => {
+        if (video.srcObject) {
+          const stream = video.srcObject as MediaStream
+          stream.getTracks().forEach(track => {
+            if (track.readyState === 'live') {
+              console.log("🔴 EMERGENCY: Stopping global lingering track:", track.kind)
+              track.stop()
+            }
+          })
+          video.srcObject = null
+        }
+      })
+    }, 100)
     
-    // Call the onClose callback
-    if (onClose) {
-      onClose()
-    }
+    // Final safety check
+    setTimeout(() => {
+      console.log("🔴 Final safety check: Ensuring all cameras are off...")
+      
+      // Force stop any remaining tracks globally
+      document.querySelectorAll('video').forEach(video => {
+        if (video.srcObject) {
+          console.log("🚨 CRITICAL: Found active video stream during final check!")
+          const stream = video.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+          video.srcObject = null
+        }
+      })
+      
+      // Reset all states and call callback
+      setHasPermission(null)
+      setError(null)
+      
+      console.log("✅ Final cleanup completed")
+      
+      // Call the onClose callback
+      if (onClose) {
+        onClose()
+      }
+    }, 300)
   }
 
   useEffect(() => {
@@ -180,9 +294,42 @@ export function RealQRScanner({ onScan, onError, onClose }: RealQRScannerProps) 
     startScanner()
 
     return () => {
-      console.log("Component cleanup: force stopping camera")
+      console.log("🔴 Component cleanup: FORCE stopping camera")
       isMountedRef.current = false
-      stopCamera()
+      
+      // Immediate cleanup when component unmounts
+      if (codeReaderRef.current) {
+        try {
+          codeReaderRef.current.reset()
+        } catch (error) {
+          console.log("QR reader already stopped in cleanup")
+        }
+        codeReaderRef.current = null
+      }
+      
+      // Stop all tracks immediately
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          if (track.readyState === 'live') {
+            console.log("🔴 CLEANUP: Force stopping track:", track.kind)
+            track.stop()
+          }
+        })
+        streamRef.current = null
+      }
+      
+      // Clear video element
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach(track => {
+          if (track.readyState === 'live') {
+            track.stop()
+          }
+        })
+        videoRef.current.srcObject = null
+      }
+      
+      console.log("✅ Component cleanup completed")
     }
   }, [])
 

@@ -26,9 +26,13 @@ import {
 } from "lucide-react"
 import { RewardCard } from "@/components/reward-card"
 import { RedeemConfirmationModal } from "@/components/redeem-confirmation-modal"
+import { ClaimQRCode } from "@/components/claim-qr-code"
+import { NetworkWarning } from "@/components/network-warning"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { mockGetUserLoyalBalance } from "@/lib/ethers"
+import { getPltBalance } from "@/lib/plt-swap-contract"
 import { motion } from "framer-motion"
 import { QRCodeSVG } from "qrcode.react" // Import QRCode
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Import Tabs components
@@ -48,7 +52,7 @@ type Redemption = {
   claimCode: string
 }
 
-type HistoryEntry = (Redemption & { type: "redeemed" }) | (PointReception & { type: "received" })
+type HistoryEntry = (Redemption & { type: "redeemed"; merchantName: string; redeemedPoints: number }) | (PointReception & { type: "received" })
 
 export default function UserDashboardPage() {
   const { walletAddress, userType, userLoyalBalance, setUserLoyalBalance } = useWalletStore()
@@ -63,9 +67,13 @@ export default function UserDashboardPage() {
   const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false)
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null)
   const [isRedeeming, setIsRedeeming] = useState(false)
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [redemptionData, setRedemptionData] = useState<any>(null)
 
   const [loadingLoyalBalance, setLoadingLoyalBalance] = useState(true)
   const [copied, setCopied] = useState(false) // For copy wallet address
+  const [realPltBalance, setRealPltBalance] = useState<number>(0)
+  const [loadingPltBalance, setLoadingPltBalance] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState("") // For reward search
   const [history, setHistory] = useState<HistoryEntry[]>([]) // For redemption history
@@ -87,11 +95,13 @@ export default function UserDashboardPage() {
       setLoadingLoyalBalance(true)
       setLoadingHistory(true)
       setErrorHistory(null)
+      setLoadingPltBalance(true)
 
       try {
         // Load rewards
-        const rewardsData = await fetchRewards()
-        const grouped: GroupedRewards = rewardsData.reduce((acc, reward) => {
+        const rewardsResponse = await fetchRewards()
+        const rewardsData = rewardsResponse.data
+        const grouped: GroupedRewards = rewardsData.reduce((acc: GroupedRewards, reward: Reward) => {
           if (!acc[reward.merchantName]) {
             acc[reward.merchantName] = []
           }
@@ -103,6 +113,21 @@ export default function UserDashboardPage() {
         // Load user's loyal balance
         const loyalBalance = await mockGetUserLoyalBalance(walletAddress)
         setUserLoyalBalance(loyalBalance)
+        
+        // Use the new balance service to fetch real IDRX balances
+        const { balanceService } = await import("@/lib/balance-service")
+        await balanceService.refreshBalancesImmediate(walletAddress, 'user')
+        
+        // Load real PLT balance from blockchain
+        try {
+          const pltBalance = await getPltBalance(walletAddress)
+          setRealPltBalance(pltBalance)
+        } catch (pltError) {
+          console.error('Failed to load PLT balance:', pltError)
+          setRealPltBalance(0)
+        } finally {
+          setLoadingPltBalance(false)
+        }
 
         // Load user's redemption history and point reception logs
         const [redemptions, receptions] = await Promise.all([
@@ -111,7 +136,12 @@ export default function UserDashboardPage() {
         ])
 
         const combinedHistory: HistoryEntry[] = [
-          ...redemptions.map((r) => ({ ...r, type: "redeemed" as const })),
+          ...redemptions.map((r) => ({ 
+            ...r, 
+            type: "redeemed" as const,
+            merchantName: r.merchantName || "Unknown Merchant",
+            redeemedPoints: r.redeemedPoints || 0
+          })),
           ...receptions.map((p) => ({ ...p, type: "received" as const })),
         ]
 
@@ -140,13 +170,16 @@ export default function UserDashboardPage() {
     }
 
     loadData()
-  }, [walletAddress, userType, router, setUserLoyalBalance])
+  }, [walletAddress, userType, router])
 
-  const handleRedeemClick = (reward: Reward) => {
+  const handleRedeemClick = (rewardId: string) => {
+    const reward = Object.values(rewards).flat().find(r => r.id === rewardId)
+    if (!reward) return
+    
     if (userLoyalBalance === null || userLoyalBalance < reward.requiredPoints) {
       toast({
         title: "Insufficient Points",
-        description: `You need ${reward.requiredPoints} LOYAL points to redeem this reward, but you only have ${userLoyalBalance || 0}.`,
+        description: `You need ${reward.requiredPoints} PLT points to redeem this reward, but you only have ${userLoyalBalance || 0}.`,
         variant: "destructive",
       })
       return
@@ -160,20 +193,23 @@ export default function UserDashboardPage() {
 
     setIsRedeeming(true)
     try {
-      const redemptionResult = await redeemReward(walletAddress, selectedReward.id)
+      const redemptionResult = await redeemReward(selectedReward.id)
 
       toast({
-        title: "Reward Redeemed!",
-        description: `You have successfully redeemed "${selectedReward.title}".`,
+        title: "Redemption Created!",
+        description: `Your claim code is ready. Show it to the merchant to complete redemption.`,
       })
 
-      // Update local balance after successful redemption
-      if (userLoyalBalance !== null) {
-        setUserLoyalBalance(userLoyalBalance - selectedReward.requiredPoints) // Corrected from requiredWithPoints
-      }
-      // Mark the reward as redeemed locally
-      setRedeemedRewardIds((prev) => new Set(prev).add(selectedReward.id))
+      // Store redemption data for QR code
+      setRedemptionData({
+        claimCode: redemptionResult.claimCode,
+        rewardTitle: selectedReward.title,
+        merchantName: selectedReward.merchantName,
+        redeemedPoints: selectedReward.requiredPoints,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+      })
 
+      // NOTE: Points are NOT deducted yet - this happens when merchant confirms
       // Update history
       const newRedemptionEntry: HistoryEntry = {
         ...redemptionResult,
@@ -181,15 +217,26 @@ export default function UserDashboardPage() {
       }
       setHistory((prev) => [newRedemptionEntry, ...prev])
 
-      // Redirect to a success page with redemption details
-      router.push(
-        `/redeem-success?rewardTitle=${encodeURIComponent(selectedReward.title)}&merchantName=${encodeURIComponent(selectedReward.merchantName)}&redeemedPoints=${selectedReward.requiredPoints}&claimCode=${redemptionResult.claimCode}`,
-      )
+      // Show QR code modal instead of redirecting
+      setShowQRModal(true)
     } catch (err: any) {
       console.error("Failed to redeem reward:", err)
+      
+      // Handle specific error cases
+      let errorTitle = "Redemption Failed"
+      let errorDescription = err.message || "Could not redeem reward. Please try again."
+      
+      if (err.message?.includes('pending redemption')) {
+        errorTitle = "Duplicate Redemption"
+        errorDescription = err.message
+      } else if (err.message?.includes('Insufficient loyalty points')) {
+        errorTitle = "Not Enough Points"
+        errorDescription = "You don't have enough PLT points for this reward."
+      }
+      
       toast({
-        title: "Redemption Failed",
-        description: err.message || "Could not redeem reward. Please try again.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       })
     } finally {
@@ -208,6 +255,28 @@ export default function UserDashboardPage() {
         description: "Wallet address copied to clipboard.",
       })
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleRefreshPltBalance = async () => {
+    if (!walletAddress) return
+    
+    setLoadingPltBalance(true)
+    try {
+      const newPltBalance = await getPltBalance(walletAddress)
+      setRealPltBalance(newPltBalance)
+      toast({
+        title: "Balance Updated",
+        description: "PLT balance refreshed from blockchain",
+      })
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to refresh PLT balance",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingPltBalance(false)
     }
   }
 
@@ -245,6 +314,7 @@ export default function UserDashboardPage() {
   return (
     <>
       <main className="flex flex-1 flex-col items-center p-4 md:p-8">
+        <NetworkWarning className="mb-4 w-full max-w-4xl" />
         <motion.div
           className="w-full max-w-4xl space-y-6"
           variants={containerVariants}
@@ -253,29 +323,43 @@ export default function UserDashboardPage() {
         >
           {/* Balance and Profile Cards Side by Side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Prominent LOYAL Balance Card */}
+            {/* Prominent PLT Balance Card */}
             <motion.div variants={itemVariants}>
               <Card className="p-6 text-center shadow-lg glass-card h-full">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xl font-medium flex items-center justify-center gap-2">
-                    <Wallet className="h-6 w-6 text-primary" /> Your LOYAL Balance
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-medium flex items-center gap-2">
+                      <Wallet className="h-6 w-6 text-primary" /> Your PLT Balance
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleRefreshPltBalance}
+                      className="h-8 w-8 p-0"
+                      disabled={loadingPltBalance}
+                    >
+                      <Loader2 className={`h-4 w-4 ${loadingPltBalance ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center">
-                  {loadingLoyalBalance ? (
+                  {loadingPltBalance ? (
                     <div className="h-12 w-32 animate-pulse rounded-md bg-muted" />
                   ) : (
                     <motion.div
-                      key={userLoyalBalance} // Key change to re-animate on balance update
+                      key={realPltBalance} // Key change to re-animate on balance update
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 200, damping: 15 }}
                       className="text-6xl font-bold text-primary drop-shadow-md"
                     >
-                      {userLoyalBalance?.toFixed(2) || "0.00"}
+                      {realPltBalance.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                     </motion.div>
                   )}
-                  <p className="text-sm text-muted-foreground mt-2">Your total loyalty points across all merchants</p>
+                  <p className="text-sm text-muted-foreground mt-2">Your Pointify Token (PLT) balance from blockchain</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -388,7 +472,7 @@ export default function UserDashboardPage() {
                                 <RewardCard
                                   {...reward}
                                   onRedeem={handleRedeemClick}
-                                  userPoints={userLoyalBalance || 0}
+                                  userPoints={realPltBalance}
                                   isClaimed={redeemedRewardIds.has(reward.id)}
                                 />
                               </motion.div>
@@ -526,7 +610,7 @@ export default function UserDashboardPage() {
                                 </TableCell>
                                 <TableCell>{entry.merchantName}</TableCell>
                                 <TableCell>
-                                  {entry.type === "redeemed" ? `-${entry.redeemedPoints}` : `+${entry.pointsReceived}`}
+                                  {entry.type === "redeemed" ? `-${entry.redeemedPoints || 0}` : `+${entry.pointsReceived}`}
                                 </TableCell>
                                 <TableCell>
                                   {new Date(
@@ -561,6 +645,24 @@ export default function UserDashboardPage() {
             isLoading={isRedeeming}
           />
         )}
+
+        {/* QR Code Modal */}
+        <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-center">Your Claim Code is Ready!</DialogTitle>
+            </DialogHeader>
+            {redemptionData && (
+              <ClaimQRCode
+                claimCode={redemptionData.claimCode}
+                rewardTitle={redemptionData.rewardTitle}
+                merchantName={redemptionData.merchantName}
+                redeemedPoints={redemptionData.redeemedPoints}
+                expiresAt={redemptionData.expiresAt}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </>
   )

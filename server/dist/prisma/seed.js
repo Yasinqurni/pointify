@@ -38,25 +38,73 @@ async function main() {
         prisma.merchant.create({
             data: {
                 walletAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b7',
-                name: 'Crypto Coffee Shop',
-                description: 'Premium coffee and pastries with crypto rewards',
+                name: 'Sweet Dreams Donuts',
+                description: 'Fresh donuts and pastries with crypto rewards',
                 logoUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a87c3?w=200',
             },
         }),
         prisma.merchant.create({
             data: {
                 walletAddress: '0x8ba1f109551bD432803012645Hac136c772c3c8c',
-                name: 'NFT Art Gallery',
-                description: 'Digital art and collectibles marketplace',
-                logoUrl: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=200',
+                name: 'Ice Cream Paradise',
+                description: 'Artisanal ice cream and frozen treats',
+                logoUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=200',
             },
         }),
         prisma.merchant.create({
             data: {
                 walletAddress: '0x1234567890123456789012345678901234567891',
-                name: 'DeFi Trading Platform',
-                description: 'Advanced trading tools and analytics',
-                logoUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=200',
+                name: 'Pizza Palace',
+                description: 'Authentic Italian pizza and pasta',
+                logoUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200',
+            },
+        }),
+        prisma.merchant.create({
+            data: {
+                walletAddress: '0x9876543210987654321098765432109876543211',
+                name: 'Burger House',
+                description: 'Gourmet burgers and fries',
+                logoUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200',
+            },
+        }),
+        prisma.merchant.create({
+            data: {
+                walletAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+                name: 'Sushi Express',
+                description: 'Fresh sushi and Japanese cuisine',
+                logoUrl: 'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=200',
+            },
+        }),
+        prisma.merchant.create({
+            data: {
+                walletAddress: '0xfedcba0987654321fedcba0987654321fedcba09',
+                name: 'Taco Town',
+                description: 'Authentic Mexican tacos and burritos',
+                logoUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=200',
+            },
+        }),
+        prisma.merchant.create({
+            data: {
+                walletAddress: '0x1111111111111111111111111111111111111111',
+                name: 'Coffee Corner',
+                description: 'Premium coffee and espresso drinks',
+                logoUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200',
+            },
+        }),
+        prisma.merchant.create({
+            data: {
+                walletAddress: '0x2222222222222222222222222222222222222222',
+                name: 'Bakery Bliss',
+                description: 'Fresh bread, cakes, and pastries',
+                logoUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
+            },
+        }),
+        prisma.merchant.create({
+            data: {
+                walletAddress: '0x3333333333333333333333333333333333333333',
+                name: 'Noodle House',
+                description: 'Asian noodles and stir-fry dishes',
+                logoUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200',
             },
         }),
     ]);
@@ -64,9 +112,64 @@ async function main() {
     const rewards = await Promise.all([
         prisma.reward.create({
             data: {
-                title: 'Free Espresso',
-                description: 'Get a free espresso with any purchase',
-                imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300',
+                title: '🆓 FREE Sample Donut',
+                description: 'Completely free sample donut - no points required!',
+                imageUrl: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=300',
+                requiredPoints: 0,
+                expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[0].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '🆓 FREE Coffee Sample',
+                description: 'Try our coffee for free - zero points needed!',
+                imageUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=300',
+                requiredPoints: 0,
+                expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[6].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '🆓 FREE Ice Cream Sample',
+                description: 'Taste test any flavor - completely free!',
+                imageUrl: 'https://images.unsplash.com/photo-1488900128323-21503983a07e?w=300',
+                requiredPoints: 0,
+                expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[1].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '🆓 FREE Loyalty Welcome Gift',
+                description: 'Welcome to our loyalty program - free for joining!',
+                imageUrl: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300',
+                requiredPoints: 0,
+                expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[2].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '🆓 FREE QR Code Test',
+                description: 'Test the QR code redemption system - totally free!',
+                imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300',
+                requiredPoints: 0,
+                expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[3].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Donut',
+                description: 'Get a free donut with any purchase',
+                imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a87c3?w=300',
                 requiredPoints: 100,
                 expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                 isActive: true,
@@ -86,20 +189,9 @@ async function main() {
         }),
         prisma.reward.create({
             data: {
-                title: 'Free Coffee for a Week',
-                description: 'One free coffee every day for a week',
+                title: 'Buy 1 Get 1 Free Donuts',
+                description: 'Buy any donut, get one free',
                 imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300',
-                requiredPoints: 500,
-                expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-                isActive: true,
-                merchantId: merchants[0].id,
-            },
-        }),
-        prisma.reward.create({
-            data: {
-                title: 'Buy 1 Get 1 Free',
-                description: 'Buy any drink, get one free',
-                imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300',
                 requiredPoints: 300,
                 expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
                 isActive: true,
@@ -108,43 +200,21 @@ async function main() {
         }),
         prisma.reward.create({
             data: {
-                title: 'Free Breakfast Sandwich',
-                description: 'Get a free breakfast sandwich with any coffee',
-                imageUrl: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=300',
-                requiredPoints: 400,
+                title: 'Free Ice Cream Cone',
+                description: 'Get a free ice cream cone with any purchase',
+                imageUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=300',
+                requiredPoints: 150,
                 expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                 isActive: true,
-                merchantId: merchants[0].id,
-            },
-        }),
-        prisma.reward.create({
-            data: {
-                title: '10% Off NFT Purchase',
-                description: 'Get 10% off any NFT in our gallery',
-                imageUrl: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=300',
-                requiredPoints: 300,
-                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
-                isActive: true,
                 merchantId: merchants[1].id,
             },
         }),
         prisma.reward.create({
             data: {
-                title: 'Free Art Workshop',
-                description: 'Join our digital art creation workshop',
-                imageUrl: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300',
-                requiredPoints: 800,
-                expiryDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
-                isActive: true,
-                merchantId: merchants[1].id,
-            },
-        }),
-        prisma.reward.create({
-            data: {
-                title: '20% Off Limited Edition Prints',
-                description: 'Get 20% off limited edition art prints',
-                imageUrl: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300',
-                requiredPoints: 600,
+                title: '50% Off Sundae',
+                description: 'Half price on any ice cream sundae',
+                imageUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=300',
+                requiredPoints: 250,
                 expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
                 isActive: true,
                 merchantId: merchants[1].id,
@@ -152,57 +222,244 @@ async function main() {
         }),
         prisma.reward.create({
             data: {
-                title: 'Free Gallery Tour',
-                description: 'Exclusive guided tour of our NFT gallery',
-                imageUrl: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300',
-                requiredPoints: 250,
-                expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                title: 'Free Milkshake',
+                description: 'Get a free milkshake with any ice cream',
+                imageUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=300',
+                requiredPoints: 400,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
                 isActive: true,
                 merchantId: merchants[1].id,
             },
         }),
         prisma.reward.create({
             data: {
-                title: 'Reduced Trading Fees',
-                description: '50% off trading fees for one month',
-                imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=300',
+                title: 'Free Pizza Slice',
+                description: 'Get a free pizza slice with any order',
+                imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300',
+                requiredPoints: 200,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[2].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '50% Off Large Pizza',
+                description: 'Half price on any large pizza',
+                imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300',
+                requiredPoints: 500,
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[2].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Garlic Bread',
+                description: 'Get free garlic bread with any pizza',
+                imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300',
+                requiredPoints: 150,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[2].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Burger',
+                description: 'Get a free burger with any order',
+                imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300',
+                requiredPoints: 300,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[3].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '50% Off Combo Meal',
+                description: 'Half price on any combo meal',
+                imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300',
                 requiredPoints: 400,
-                expiryDate: new Date(Date.now() + 75 * 24 * 60 * 60 * 1000),
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
                 isActive: true,
-                merchantId: merchants[2].id,
+                merchantId: merchants[3].id,
             },
         }),
         prisma.reward.create({
             data: {
-                title: 'Premium Analytics Access',
-                description: 'Access to advanced trading analytics for 30 days',
-                imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=300',
-                requiredPoints: 1000,
-                expiryDate: new Date(Date.now() + 150 * 24 * 60 * 60 * 1000),
+                title: 'Free Fries',
+                description: 'Get free fries with any burger',
+                imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300',
+                requiredPoints: 100,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
                 isActive: true,
-                merchantId: merchants[2].id,
+                merchantId: merchants[3].id,
             },
         }),
         prisma.reward.create({
             data: {
-                title: 'Free Trading Course',
-                description: 'Access to our premium trading course for 30 days',
-                imageUrl: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=300',
-                requiredPoints: 700,
-                expiryDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
+                title: 'Free Sushi Roll',
+                description: 'Get a free sushi roll with any order',
+                imageUrl: 'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=300',
+                requiredPoints: 250,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                 isActive: true,
-                merchantId: merchants[2].id,
+                merchantId: merchants[4].id,
             },
         }),
         prisma.reward.create({
             data: {
-                title: 'VIP Trading Signals',
-                description: 'Get exclusive trading signals for one month',
-                imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=300',
-                requiredPoints: 1500,
-                expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+                title: '50% Off Sashimi',
+                description: 'Half price on any sashimi plate',
+                imageUrl: 'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=300',
+                requiredPoints: 350,
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
                 isActive: true,
-                merchantId: merchants[2].id,
+                merchantId: merchants[4].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Miso Soup',
+                description: 'Get free miso soup with any sushi',
+                imageUrl: 'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=300',
+                requiredPoints: 75,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[4].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Taco',
+                description: 'Get a free taco with any order',
+                imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300',
+                requiredPoints: 120,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[5].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '50% Off Burrito',
+                description: 'Half price on any burrito',
+                imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300',
+                requiredPoints: 200,
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[5].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Guacamole',
+                description: 'Get free guacamole with any taco',
+                imageUrl: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300',
+                requiredPoints: 80,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[5].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Coffee',
+                description: 'Get a free coffee with any purchase',
+                imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300',
+                requiredPoints: 100,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[6].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '50% Off Latte',
+                description: 'Half price on any latte',
+                imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300',
+                requiredPoints: 150,
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[6].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Pastry',
+                description: 'Get a free pastry with any coffee',
+                imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300',
+                requiredPoints: 120,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[6].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Croissant',
+                description: 'Get a free croissant with any purchase',
+                imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300',
+                requiredPoints: 80,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[7].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '50% Off Cake',
+                description: 'Half price on any cake',
+                imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300',
+                requiredPoints: 300,
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[7].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Bread',
+                description: 'Get a free bread with any pastry',
+                imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300',
+                requiredPoints: 100,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[7].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Noodle Bowl',
+                description: 'Get a free noodle bowl with any order',
+                imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300',
+                requiredPoints: 200,
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[8].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: '50% Off Stir Fry',
+                description: 'Half price on any stir fry dish',
+                imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300',
+                requiredPoints: 250,
+                expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[8].id,
+            },
+        }),
+        prisma.reward.create({
+            data: {
+                title: 'Free Spring Rolls',
+                description: 'Get free spring rolls with any noodle dish',
+                imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300',
+                requiredPoints: 150,
+                expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+                isActive: true,
+                merchantId: merchants[8].id,
             },
         }),
     ]);
@@ -473,9 +730,15 @@ async function main() {
     console.log('User 3:', users[2].walletAddress);
     console.log('User 4:', users[3].walletAddress);
     console.log('\n🏪 Sample Merchant Addresses:');
-    console.log('Crypto Coffee Shop:', merchants[0].walletAddress);
-    console.log('NFT Art Gallery:', merchants[1].walletAddress);
-    console.log('DeFi Trading Platform:', merchants[2].walletAddress);
+    console.log('Sweet Dreams Donuts:', merchants[0].walletAddress);
+    console.log('Ice Cream Paradise:', merchants[1].walletAddress);
+    console.log('Pizza Palace:', merchants[2].walletAddress);
+    console.log('Burger House:', merchants[3].walletAddress);
+    console.log('Sushi Express:', merchants[4].walletAddress);
+    console.log('Taco Town:', merchants[5].walletAddress);
+    console.log('Coffee Corner:', merchants[6].walletAddress);
+    console.log('Bakery Bliss:', merchants[7].walletAddress);
+    console.log('Noodle House:', merchants[8].walletAddress);
     console.log('\n🎫 Sample Claim Codes:');
     console.log('ABC12345 - User 1\'s claimed espresso');
     console.log('DEF67890 - User 1\'s pending NFT discount');

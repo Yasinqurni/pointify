@@ -25,7 +25,71 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
+    console.log("🔍 Backend login called with walletAddress:", loginDto.walletAddress)
+    console.log("🔍 Backend login data:", {
+      walletAddress: loginDto.walletAddress,
+      hasSignature: !!loginDto.signature,
+      hasMessage: !!loginDto.message
+    })
+    
     const { walletAddress, signature, message } = loginDto;
+
+    // Validate wallet signature
+    console.log("🔍 Backend: Validating wallet signature...")
+    const isValidSignature = await this.validateWalletSignature(
+      walletAddress,
+      message,
+      signature,
+    );
+    console.log("🔍 Backend: Signature validation result:", isValidSignature)
+    
+    if (!isValidSignature) {
+      console.log("❌ Backend: Invalid wallet signature")
+      throw new UnauthorizedException('Invalid wallet signature');
+    }
+
+    // Only check for merchant - no user logic
+    console.log("🔍 Backend: Searching for merchant in database...")
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress },
+    });
+    console.log("🔍 Backend: Merchant found:", !!merchant)
+
+    if (!merchant) {
+      console.log("❌ Backend: No merchant found")
+      throw new UnauthorizedException('Merchant not found');
+    }
+
+    const payload = {
+      sub: merchant.id,
+      walletAddress,
+      userType: 'merchant',
+    };
+    
+    console.log("🔍 Backend: Creating JWT payload:", payload)
+
+    const accessToken = this.jwtService.sign(payload)
+    const refreshToken = this.jwtService.sign(payload)
+    
+    console.log("🔍 Backend: Tokens generated:", {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      userType: 'merchant'
+    })
+
+    const response = {
+      accessToken,
+      refreshToken,
+      user: merchant,
+      userType: 'merchant',
+    };
+    
+    console.log("✅ Backend: Login successful, returning response")
+    return response;
+  }
+
+  async registerMerchant(merchantRegisterDto: MerchantRegisterDto) {
+    const { walletAddress, signature, message, name, description, logoUrl } = merchantRegisterDto;
 
     // Validate wallet signature
     const isValidSignature = await this.validateWalletSignature(
@@ -36,70 +100,6 @@ export class AuthService {
     if (!isValidSignature) {
       throw new UnauthorizedException('Invalid wallet signature');
     }
-
-    // Find user or merchant
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    const merchant = await this.prisma.merchant.findUnique({
-      where: { walletAddress },
-    });
-
-    if (!user && !merchant) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    const payload = {
-      sub: user?.id || merchant?.id,
-      walletAddress,
-      userType: user ? 'user' : 'merchant',
-    };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: user || merchant,
-      userType: user ? 'user' : 'merchant',
-    };
-  }
-
-  async registerUser(registerDto: RegisterDto) {
-    const { walletAddress, email, username } = registerDto;
-
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    if (existingUser) {
-      throw new UnauthorizedException('User already exists');
-    }
-
-    // Create new user
-    const user = await this.prisma.user.create({
-      data: {
-        walletAddress,
-        email,
-        username,
-        // loyaltyPoints removed - now using blockchain balance
-      },
-    });
-
-    const payload = {
-      sub: user.id,
-      walletAddress,
-      userType: 'user',
-    };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user,
-      userType: 'user',
-    };
-  }
-
-  async registerMerchant(merchantRegisterDto: MerchantRegisterDto) {
-    const { walletAddress, name, description, logoUrl } = merchantRegisterDto;
 
     // Check if merchant already exists
     const existingMerchant = await this.prisma.merchant.findUnique({
@@ -127,8 +127,46 @@ export class AuthService {
     };
 
     return {
-      access_token: this.jwtService.sign(payload),
-      merchant,
+      accessToken: this.jwtService.sign(payload),
+      refreshToken: this.jwtService.sign(payload),
+      user: merchant,
+      userType: 'merchant',
+    };
+  }
+
+  async registerMerchantWithToken(merchantData: any, user: any) {
+    const { name, description, logoUrl } = merchantData;
+    const walletAddress = user.walletAddress;
+
+    // Check if merchant already exists
+    const existingMerchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress },
+    });
+
+    if (existingMerchant) {
+      throw new UnauthorizedException('Merchant already exists');
+    }
+
+    // Create new merchant
+    const merchant = await this.prisma.merchant.create({
+      data: {
+        walletAddress,
+        name,
+        description,
+        logoUrl,
+      },
+    });
+
+    const payload = {
+      sub: merchant.id,
+      walletAddress,
+      userType: 'merchant',
+    };
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+      refreshToken: this.jwtService.sign(payload), // For now, using same token as refresh
+      user: merchant, // Use 'user' field for consistency
       userType: 'merchant',
     };
   }
@@ -147,6 +185,56 @@ export class AuthService {
   async getMerchantByWallet(walletAddress: string) {
     const merchant = await this.prisma.merchant.findUnique({
       where: { walletAddress },
+    });
+
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+
+    return merchant;
+  }
+
+  async updateMerchantStatus(walletAddress: string, status: 'APPROVED' | 'REJECTED', transactionHash?: string) {
+    const merchant = await this.prisma.merchant.update({
+      where: { walletAddress },
+      data: {
+        status,
+        transactionHash,
+      },
+    });
+
+    return merchant;
+  }
+
+  async getMerchantProfile(user: any) {
+    // Check if user is a merchant
+    if (user.userType !== 'merchant') {
+      throw new UnauthorizedException('Access denied. User is not a merchant.');
+    }
+
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress: user.walletAddress },
+    });
+
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+
+    return merchant;
+  }
+
+  async getPublicMerchantInfo(walletAddress: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { walletAddress },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+        walletAddress: true,
+        createdAt: true,
+        // Exclude sensitive fields like internal IDs, etc.
+      },
     });
 
     if (!merchant) {

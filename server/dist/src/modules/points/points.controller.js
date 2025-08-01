@@ -27,7 +27,7 @@ let PointsController = class PointsController {
         return this.pointsService.issuePoints(req.user.userId, issuePointsDto);
     }
     async getUserBalance(req) {
-        return this.pointsService.getUserBalance(req.user.userId);
+        return this.pointsService.getUserBalance(req.user.userId, req.user.walletAddress);
     }
     async getMerchantBalance(req) {
         return this.pointsService.getMerchantBalance(req.user.userId);

@@ -12,22 +12,21 @@ import {
   mockGetMerchantLoyalBalance,
   checkUserBalanceForRedemption 
 } from "@/lib/ethers"
+import { getLoyaltySettings, type LoyaltySettings } from "@/lib/api"
 import { useWalletStore } from "@/lib/store"
 import { RealQRScanner } from "@/components/real-qr-scanner"
 import { motion, AnimatePresence } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-// Mock loyalty rules - in real app this would come from the loyalty settings
-const LOYALTY_RULES = {
-  pointsPerDollar: 1,
-  pointsPerRupiah: 10000,
-  minimumPurchase: 10000, // 10,000 IDR minimum
-  autoCalculate: true
-}
-
 export default function RewardCustomerPage() {
+  console.log("🚀 RewardCustomerPage component rendering...")
   const { walletAddress, userType, merchantLoyalBalance, setMerchantLoyalBalance, setTotalLoyalRewarded } = useWalletStore()
   const { toast } = useToast()
+  
+  console.log("📊 Store state in RewardCustomerPage:")
+  console.log("  - walletAddress:", walletAddress)
+  console.log("  - userType:", userType)
+  console.log("  - merchantLoyalBalance:", merchantLoyalBalance)
 
   const [scannedAddress, setScannedAddress] = useState<string | null>(null)
   const [priceAmount, setPriceAmount] = useState("")
@@ -40,17 +39,45 @@ export default function RewardCustomerPage() {
   const [showManualDialog, setShowManualDialog] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState("")
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
+  const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings | null>(null)
+
+  // Load loyalty settings
+  useEffect(() => {
+    const loadLoyaltySettings = async () => {
+      try {
+        const settings = await getLoyaltySettings()
+        setLoyaltySettings(settings)
+      } catch (error) {
+        console.error("Failed to load loyalty settings:", error)
+        toast({
+          title: "Warning",
+          description: "Failed to load loyalty settings. Using default values.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    if (userType === "merchant") {
+      loadLoyaltySettings()
+    }
+  }, [userType, toast])
 
   useEffect(() => {
     const amount = Number.parseFloat(priceAmount)
-    if (!isNaN(amount) && amount > 0) {
+    if (!isNaN(amount) && amount > 0 && loyaltySettings) {
+      // Check minimum purchase requirement
+      if (amount < loyaltySettings.minimumPurchase) {
+        setCalculatedLoyalPoints(0)
+        return
+      }
+      
       // Only IDR calculation
-      const points = Math.floor(amount / LOYALTY_RULES.pointsPerRupiah)
+      const points = Math.floor(amount / loyaltySettings.pointsPerRupiah)
       setCalculatedLoyalPoints(points)
     } else {
       setCalculatedLoyalPoints(0)
     }
-  }, [priceAmount])
+  }, [priceAmount, loyaltySettings])
 
   const handleScan = (data: string) => {
     setScannedAddress(data)
@@ -168,12 +195,61 @@ export default function RewardCustomerPage() {
   }
 
   const handleScannerClose = () => {
-    setShowScanner(false)
+    console.log('🔴 MODAL: Starting camera cleanup...')
+    
+    // STEP 1: Force immediate global camera cleanup
+    const videoElements = document.querySelectorAll('video')
+    videoElements.forEach((video, index) => {
+      if (video.srcObject) {
+        const stream = video.srcObject as MediaStream
+        stream.getTracks().forEach(track => {
+          console.log(`🔴 MODAL: Force stopping track ${track.kind} on video ${index}`)
+          track.stop()
+        })
+        video.pause()
+        video.srcObject = null
+        video.src = ""
+        if (typeof video.load === 'function') {
+          video.load()
+        }
+      }
+    })
+    
+    // STEP 2: Multiple safety checks with increasing delays
+    setTimeout(() => {
+      console.log('🔴 MODAL: Safety check 1...')
+      document.querySelectorAll('video').forEach((video, index) => {
+        if (video.srcObject) {
+          console.log(`🚨 MODAL: Found lingering stream on video ${index}!`)
+          const stream = video.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+          video.srcObject = null
+        }
+      })
+    }, 200)
+    
+    // STEP 3: Final check and unmount
+    setTimeout(() => {
+      console.log('🔴 MODAL: Final safety check before unmount...')
+      
+      // Last chance cleanup
+      document.querySelectorAll('video').forEach(video => {
+        if (video.srcObject) {
+          console.log('🚨 MODAL CRITICAL: Forcing final cleanup!')
+          const stream = video.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+          video.srcObject = null
+        }
+      })
+      
+      console.log('✅ MODAL: Camera cleanup completed, unmounting...')
+      setShowScanner(false)
+    }, 500)
   }
 
   if (!walletAddress || userType !== "merchant") {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-8">
+      <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-8 min-h-screen">
         <Card className="w-full max-w-md text-center bg-card shadow-lg glass-card">
           <CardHeader>
             <CardTitle className="text-2xl text-destructive">Access Denied</CardTitle>
@@ -189,7 +265,7 @@ export default function RewardCustomerPage() {
   // Main view - show two buttons (only when no address is set)
   if (rewardStatus === "idle" && !scannedAddress) {
     return (
-      <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-32">
+      <main className="flex flex-1 flex-col items-center p-4 md:p-8 pt-16 md:pt-32 min-h-screen">
         <Card className="w-full max-w-md shadow-lg glass-card">
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
@@ -321,7 +397,7 @@ export default function RewardCustomerPage() {
                     className="mt-2"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Minimum purchase: {LOYALTY_RULES.minimumPurchase.toLocaleString()} IDR
+                    Minimum purchase: {loyaltySettings?.minimumPurchase.toLocaleString() || '0'} IDR
                   </p>
                 </div>
 
@@ -329,7 +405,7 @@ export default function RewardCustomerPage() {
                   <h4 className="font-semibold mb-2">Calculated Points:</h4>
                   <div className="text-2xl font-bold text-primary">{calculatedLoyalPoints} LOYAL</div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Rate: 1 point per {LOYALTY_RULES.pointsPerRupiah.toLocaleString()} IDR
+                    Rate: 1 point per {loyaltySettings?.pointsPerRupiah.toLocaleString() || '10,000'} IDR
                   </p>
                 </div>
 

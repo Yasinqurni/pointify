@@ -4,9 +4,9 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useWalletStore } from "@/lib/store"
 import { useToast } from "@/components/ui/use-toast"
-import { Wallet, AlertCircle } from "lucide-react"
+import { Wallet, AlertCircle, Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
-import { web3Service } from "@/lib/web3"
+import { xellarService, LISK_SEPOLIA_CONFIG } from "@/lib/xellar"
 
 interface WalletConnectProps {
   userType: "user" | "merchant"
@@ -15,6 +15,7 @@ interface WalletConnectProps {
 
 export function WalletConnect({ userType, children }: WalletConnectProps) {
   const [connecting, setConnecting] = useState(false)
+  const [switchingNetwork, setSwitchingNetwork] = useState(false)
   const [walletError, setWalletError] = useState<string | null>(null)
   const connectWallet = useWalletStore((state) => state.connectWallet)
   const setNetworkId = useWalletStore((state) => state.setNetworkId)
@@ -22,22 +23,33 @@ export function WalletConnect({ userType, children }: WalletConnectProps) {
   const { toast } = useToast()
 
   const handleConnect = async () => {
+    console.log("🔘 WalletConnect button clicked with userType:", userType)
     setConnecting(true)
     setWalletError(null)
     
     try {
-      // Connect to real wallet
-      const { address, provider } = await web3Service.connect()
+      // Connect to wallet using Xellar
+      const { address, provider } = await xellarService.connect()
+      
+      // Check if we're switching networks
+      if (switchingNetwork) {
+        setSwitchingNetwork(false)
+        toast({
+          title: "Network Switched",
+          description: `Successfully switched to ${LISK_SEPOLIA_CONFIG.chainName}`,
+        })
+      }
       
       // Get network and balance
-      const network = await web3Service.getNetwork()
-      const balance = await web3Service.getBalance(address)
+      const network = await xellarService.getNetwork()
+      const balance = await xellarService.getBalance(address)
       
       // Connect wallet with real data
+      console.log("🔗 Connecting wallet with userType:", userType)
       connectWallet(address, userType, network.chainId, balance)
       
       // Set up event listeners
-      web3Service.onAccountsChanged((accounts) => {
+      xellarService.onAccountsChanged((accounts: string[]) => {
         if (accounts.length === 0) {
           // User disconnected wallet
           toast({
@@ -53,21 +65,56 @@ export function WalletConnect({ userType, children }: WalletConnectProps) {
         }
       })
 
-      web3Service.onChainChanged((chainId) => {
+      xellarService.onChainChanged((chainId: string) => {
         const newChainId = parseInt(chainId, 16)
         setNetworkId(newChainId)
+        
+        if (newChainId === LISK_SEPOLIA_CONFIG.chainId) {
+          toast({
+            title: "Network Connected",
+            description: `Connected to ${LISK_SEPOLIA_CONFIG.chainName}`,
+          })
+        } else {
         toast({
-          title: "Network Changed",
-          description: `Switched to network ID: ${newChainId}`,
+            title: "Wrong Network",
+            description: `Please switch to ${LISK_SEPOLIA_CONFIG.chainName}`,
+            variant: "destructive",
         })
+        }
       })
 
       toast({
         title: "Wallet Connected!",
-        description: `Successfully connected as ${userType} to ${address.slice(0, 6)}...${address.slice(-4)}.`,
+        description: `Successfully connected as ${userType} to ${address.slice(0, 6)}...${address.slice(-4)} on ${LISK_SEPOLIA_CONFIG.chainName}.`,
       })
     } catch (error: any) {
       console.error("Wallet connection error:", error)
+      
+      // Handle specific network switching errors
+      if (error.message.includes('switch') || error.message.includes('network')) {
+        setSwitchingNetwork(true)
+        toast({
+          title: "Switching Network",
+          description: "Please approve the network switch in your wallet.",
+        })
+        
+        // Retry connection after a short delay
+        setTimeout(async () => {
+          try {
+            await handleConnect()
+          } catch (retryError: any) {
+            setSwitchingNetwork(false)
+            setWalletError(retryError.message || "Failed to connect wallet")
+            toast({
+              title: "Connection Failed",
+              description: retryError.message || "Could not connect to wallet. Please try again.",
+              variant: "destructive",
+            })
+          }
+        }, 2000)
+        return
+      }
+      
       setWalletError(error.message || "Failed to connect wallet")
       toast({
         title: "Connection Failed",
@@ -94,11 +141,16 @@ export function WalletConnect({ userType, children }: WalletConnectProps) {
         whileTap={{ scale: 0.98 }}
         className="w-full flex items-center justify-center gap-3 py-3 px-6 rounded-lg text-lg font-semibold
                   bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all duration-200"
-        disabled={connecting}
+        disabled={connecting || switchingNetwork}
       >
-        {connecting ? (
+        {connecting || switchingNetwork ? (
           <span className="flex items-center gap-2">
-            <Wallet className="animate-pulse" /> Connecting...
+            {switchingNetwork ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Wallet className="animate-pulse" />
+            )}
+            {switchingNetwork ? "Switching Network..." : "Connecting..."}
           </span>
         ) : (
           <span className="flex items-center gap-2">
@@ -106,6 +158,12 @@ export function WalletConnect({ userType, children }: WalletConnectProps) {
           </span>
         )}
       </motion.button>
+      
+      {switchingNetwork && (
+        <div className="text-center text-sm text-muted-foreground">
+          Please approve the network switch in your wallet
+        </div>
+      )}
     </div>
   )
 }

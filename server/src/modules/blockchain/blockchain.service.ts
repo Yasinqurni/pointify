@@ -353,4 +353,23 @@ export class BlockchainService {
       return false;
     }
   }
+
+  /**
+   * Redeem loyalty points from user's balance (called when merchant confirms redemption)
+   */
+  async redeemLoyaltyPoints(walletAddress: string, amount: number): Promise<string> {
+    try {
+      this.logger.log(`Redeeming ${amount} LOYAL points from ${walletAddress}`);
+      
+      // In a real implementation, this would call the smart contract
+      // For now, we'll simulate the transaction
+      const transactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      
+      this.logger.log(`Redemption successful. Transaction hash: ${transactionHash}`);
+      return transactionHash;
+    } catch (error) {
+      this.logger.error(`Error redeeming loyalty points: ${error.message}`);
+      throw new Error('Failed to redeem points on blockchain');
+    }
+  }
 }

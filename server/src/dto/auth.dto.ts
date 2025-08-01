@@ -24,6 +24,16 @@ export class RegisterDto {
   @IsNotEmpty()
   walletAddress: string;
 
+  @ApiProperty({ description: 'User signature for wallet verification' })
+  @IsString()
+  @IsNotEmpty()
+  signature: string;
+
+  @ApiProperty({ description: 'Message that was signed' })
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+
   @ApiProperty({ description: 'User email (optional)' })
   @IsEmail()
   @IsOptional()
@@ -40,6 +50,16 @@ export class MerchantRegisterDto {
   @IsString()
   @IsNotEmpty()
   walletAddress: string;
+
+  @ApiProperty({ description: 'User signature for wallet verification' })
+  @IsString()
+  @IsNotEmpty()
+  signature: string;
+
+  @ApiProperty({ description: 'Message that was signed' })
+  @IsString()
+  @IsNotEmpty()
+  message: string;
 
   @ApiProperty({ description: 'Merchant name' })
   @IsString()

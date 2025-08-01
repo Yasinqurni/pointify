@@ -10,7 +10,7 @@ import { Home, Gift, QrCode, ListChecks, Wallet, ArrowUpCircle, Menu, LogOut, Us
 import { useWalletStore } from "@/lib/store"
 import { UserInfoModal } from "@/components/user-info-modal"
 import { useToast } from "@/components/ui/use-toast"
-import { mockGetMerchantIDRXBalance, mockGetMerchantLoyalBalance, mockGetTotalLoyalRewarded } from "@/lib/ethers"
+
 import { useEffect } from "react"
 
 // Sidebar Context and Provider
@@ -86,22 +86,23 @@ const MerchantSidebarContent = () => {
       if (walletAddress && userType === "merchant") {
         setLoadingBalances(true)
         try {
-          const idrx = await mockGetMerchantIDRXBalance(walletAddress)
-          const loyal = await mockGetMerchantLoyalBalance(walletAddress)
-          const totalRewarded = await mockGetTotalLoyalRewarded(walletAddress)
-          setMerchantIDRXBalance(idrx)
-          setMerchantLoyalBalance(loyal)
-          setTotalLoyalRewarded(totalRewarded)
+          console.log(`🔄 MerchantSidebar: Loading balances for merchant: ${walletAddress}`)
+          
+          // Use the new balance service to fetch real IDRX balances
+          const { balanceService } = await import("@/lib/balance-service")
+          await balanceService.refreshBalancesImmediate(walletAddress, 'merchant')
+          
+          console.log('✅ MerchantSidebar: Balances loaded successfully')
         } catch (error) {
           console.error("Failed to load merchant balances:", error)
           toast({
-            title: "Error",
+            title: "Balance Error",
             description: "Failed to load merchant balances. Please refresh.",
             variant: "destructive",
           })
-          setMerchantIDRXBalance(null)
-          setMerchantLoyalBalance(null)
-          setTotalLoyalRewarded(null)
+          setMerchantIDRXBalance(0)
+          setMerchantLoyalBalance(0)
+          setTotalLoyalRewarded(0)
         } finally {
           setLoadingBalances(false)
         }
@@ -123,7 +124,6 @@ const MerchantSidebarContent = () => {
     { href: "/merchant/create-reward", icon: Gift, label: "Create Reward" },
     { href: "/merchant/scan-qr", icon: QrCode, label: "Scan QR" },
     { href: "/merchant/redeem-logs", icon: ListChecks, label: "Redemption Logs" },
-    { href: "/merchant/loyal-dashboard", icon: User, label: "Loyalty Dashboard" },
     { href: "/merchant/top-up-loyal", icon: ArrowUpCircle, label: "Top Up LOYAL" },
   ]
 
@@ -166,7 +166,7 @@ const MerchantSidebarContent = () => {
             )}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">LOYAL Balance:</span>
+            <span className="text-muted-foreground">PLT Balance:</span>
             {loadingBalances ? (
               <div className="h-4 w-16 animate-pulse rounded bg-muted" />
             ) : (

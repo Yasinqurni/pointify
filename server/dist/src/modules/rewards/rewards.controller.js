@@ -29,6 +29,9 @@ let RewardsController = class RewardsController {
     async getMerchantRewards(req) {
         return this.rewardsService.getMerchantRewards(req.user.userId);
     }
+    async getMerchantRewardsByWalletAddress(walletAddress) {
+        return this.rewardsService.getMerchantRewardsByWalletAddress(walletAddress);
+    }
     async getMerchantData(merchantId) {
         return this.rewardsService.getMerchantData(merchantId);
     }
@@ -85,6 +88,19 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], RewardsController.prototype, "getMerchantRewards", null);
+__decorate([
+    (0, common_1.Get)('merchant/wallet/:walletAddress'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get merchant rewards by wallet address' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'List of merchant rewards',
+        type: [reward_dto_1.RewardResponseDto],
+    }),
+    __param(0, (0, common_1.Param)('walletAddress')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], RewardsController.prototype, "getMerchantRewardsByWalletAddress", null);
 __decorate([
     (0, common_1.Get)('merchant/:merchantId'),
     (0, swagger_1.ApiOperation)({ summary: 'Get merchant data by merchant ID' }),

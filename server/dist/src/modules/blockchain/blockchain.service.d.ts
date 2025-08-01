@@ -25,4 +25,5 @@ export declare class BlockchainService {
         networkName: string;
     }>;
     validateWalletSignature(message: string, signature: string, expectedAddress: string): Promise<boolean>;
+    redeemLoyaltyPoints(walletAddress: string, amount: number): Promise<string>;
 }

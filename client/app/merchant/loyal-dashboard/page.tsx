@@ -9,13 +9,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Users, Loader2, Award, Sparkles, Wallet, Coins, TrendingUp } from "lucide-react"
-import { mockRewardUser, mockGetMerchantIDRXBalance } from "@/lib/ethers"
+import { mockRewardUser } from "@/lib/ethers"
+import { balanceService } from "@/lib/balance-service"
 import { MockAddressScanner } from "@/components/mock-address-scanner"
+import { NetworkWarning } from "@/components/network-warning"
 import { 
   fetchMerchantDashboardData, 
   fetchMerchantLoyaltyProgram,
   fetchMerchantData 
 } from "@/lib/api"
+import { authService } from "@/lib/auth"
+
 
 // Define a mock conversion rate: 1 USD = 1 LOYAL point
 const LOYAL_POINTS_PER_USD = 1
@@ -81,7 +85,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
 
       try {
         // Load merchant profile data
-        const merchant = await fetchMerchantData(walletAddress) as MerchantData
+        const merchant = await fetchMerchantData() as MerchantData
         setMerchantData(merchant)
 
         // Load dashboard statistics
@@ -93,11 +97,25 @@ const MerchantLoyalDashboardPage: React.FC = () => {
         setLoyaltyProgram(loyalty)
 
         // Load blockchain balances
-        const idrxBalance = await mockGetMerchantIDRXBalance(walletAddress)
-        setMerchantIDRXBalance(idrxBalance)
+        await balanceService.refreshBalances(walletAddress, 'merchant')
 
       } catch (error: any) {
         console.error("Failed to load merchant data:", error)
+        
+        // If it's an authentication error, redirect to login
+        if (error.message?.includes("Authentication required") || 
+            error.message?.includes("authentication token") ||
+            error.message?.includes("401")) {
+          console.log("🔍 Authentication error in loyal dashboard, redirecting to login")
+          authService.logout()
+          // Add guard to prevent infinite redirects
+          if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+            window.location.href = '/'
+          }
+          return
+        }
+        
+        // For other errors, set error state
         setError("Failed to load merchant data. Please refresh the page.")
         toast({
           title: "Error",
@@ -183,13 +201,15 @@ const MerchantLoyalDashboardPage: React.FC = () => {
   return (
     <>
       <main className="flex flex-1 flex-col items-center p-4 md:p-8">
+        <NetworkWarning className="mb-4 w-full max-w-6xl" />
         <Card className="w-full max-w-6xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl">
-              <Users className="h-6 w-6" /> Merchant Dashboard
+              <Users className="h-6 w-6" /> 
+              {merchantData ? `Welcome back, ${merchantData.name}!` : 'Merchant Dashboard'}
             </CardTitle>
             <CardDescription>
-              {merchantData ? `${merchantData.name} - ${merchantData.description || 'No description'}` : 'Loading merchant details...'}
+              {merchantData ? `${merchantData.description || 'Manage your loyalty program and reward customers'}` : 'Loading merchant details...'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -245,7 +265,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
                         <p className="text-sm text-muted-foreground">LOYAL Balance</p>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">{merchantIDRXBalance || 0}</div>
+                        <div className="text-2xl font-bold text-green-600">{merchantIDRXBalance?.toFixed(2) || "0.00"}</div>
                         <p className="text-sm text-muted-foreground">IDRX Balance</p>
                       </div>
                       <div className="text-center">
@@ -420,6 +440,11 @@ const MerchantLoyalDashboardPage: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* IDRX Test Panel - for testing real contract integration */}
+        <div className="mt-8">
+          
+        </div>
       </main>
     </>
   )
