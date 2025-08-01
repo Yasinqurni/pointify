@@ -1,121 +1,66 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface IERC20 {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-}
+import "./ERC20Mock.sol";
 
-/// @title LoyaltyToken - IDRX-backed ERC20 loyalty token with swap capability
-contract LoyaltyToken {
-    string private _name = "Pointify Loyalty Token";
-    string private _symbol = "PLT";
-    uint8 private _decimals = 18;
+/// @title PointifyToken - Treasury-backed loyalty token
+contract PointifyToken {
+    string public name = "Pointify Token";
+    string public symbol = "PLT";
+    uint8 public decimals = 18;
     uint256 public totalSupply;
-    uint256 public totalIDRXBacking; // Total IDRX yang mem-back token
-
-    address public owner;
-    address public rewardManager;
-    address public redemptionRouter;
-    address public swapRouter; // NEW: Swap router untuk trading tanpa burn
-    IERC20 public immutable idrxToken;
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    // ERC20 standard functions
-    function name() public view returns (string memory) {
-        return _name;
+    address public treasuryManager;
+    IERC20 public immutable idrxToken;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    modifier onlyTreasuryManager() {
+        require(msg.sender == treasuryManager, "Not treasury manager");
+        _;
     }
 
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-
-    constructor(address _rewardManager, address _redemptionRouter, address _swapRouter, address _idrxToken) {
-        rewardManager = _rewardManager;
-        redemptionRouter = _redemptionRouter;
-        swapRouter = _swapRouter;
+    constructor(address _idrxToken) {
+        // Validasi bahwa token yang digunakan adalah IDRXMock
+        require(_idrxToken != address(0), "IDRX token address cannot be zero");
         idrxToken = IERC20(_idrxToken);
-        owner = msg.sender;
+        
+        // Verifikasi bahwa ini adalah IDRXMock token
+        try IDRXMock(_idrxToken).symbol() returns (string memory tokenSymbol) {
+            require(
+                keccak256(abi.encodePacked(tokenSymbol)) == keccak256(abi.encodePacked("IDRX-MOCK")),
+                "Must use IDRX-Mock token"
+            );
+        } catch {
+            revert("Invalid IDRX-Mock token");
+        }
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
+    function setTreasuryManager(address _treasuryManager) external {
+        require(treasuryManager == address(0), "Already set");
+        treasuryManager = _treasuryManager;
     }
 
-    modifier onlyRewardManager() {
-        require(msg.sender == rewardManager, "Not reward manager");
-        _;
-    }
-
-    modifier onlyRedemptionRouter() {
-        require(msg.sender == redemptionRouter, "Not redemption router");
-        _;
-    }
-
-    modifier onlySwapRouter() {
-        require(msg.sender == swapRouter, "Not swap router");
-        _;
-    }
-
-    modifier onlyAuthorized() {
-        require(msg.sender == rewardManager || msg.sender == redemptionRouter || msg.sender == swapRouter, "Not authorized");
-        _;
-    }
-
-    // Update swap router address
-    function setSwapRouter(address _swapRouter) external onlyOwner {
-        swapRouter = _swapRouter;
-    }
-
-    function mint(address to, uint256 amount) external onlyRewardManager {
+    // Mint PLT (hanya TreasuryManager yang bisa)
+    function mint(address to, uint256 amount) external onlyTreasuryManager {
         totalSupply += amount;
-        totalIDRXBacking += amount; // 1:1 backing ratio
         balanceOf[to] += amount;
         emit Transfer(address(0), to, amount);
     }
 
-    function burn(address from, uint256 amount) external onlyRedemptionRouter {
-        require(balanceOf[from] >= amount, "Not enough balance to burn");
+    // Burn PLT (hanya TreasuryManager yang bisa)
+    function burn(address from, uint256 amount) external onlyTreasuryManager {
+        require(balanceOf[from] >= amount, "Insufficient balance");
         balanceOf[from] -= amount;
         totalSupply -= amount;
-        totalIDRXBacking -= amount; // Reduce backing
         emit Transfer(from, address(0), amount);
     }
 
-    // NEW: Transfer PLT untuk swap (tanpa burn, hanya transfer)
-    function swapTransfer(address from, address to, uint256 amount) external onlySwapRouter returns (bool) {
-        require(balanceOf[from] >= amount, "Insufficient balance");
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(from, to, amount);
-        return true;
-    }
-
-    // Helper function untuk transfer IDRX (hanya bisa dipanggil oleh authorized contracts)
-    function transferIDRX(address to, uint256 amount) external onlyAuthorized returns (bool) {
-        return idrxToken.transfer(to, amount);
-    }
-
-    // NEW: Transfer PLT untuk redemption ke merchant (tanpa burn, hanya transfer)
-    function redeemTransfer(address from, address to, uint256 amount) external onlyRedemptionRouter returns (bool) {
-        require(balanceOf[from] >= amount, "Insufficient balance");
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(from, to, amount);
-        return true;
-    }
-
+    // Standard ERC20 functions
     function transfer(address to, uint256 amount) external returns (bool) {
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
         balanceOf[msg.sender] -= amount;
@@ -139,30 +84,25 @@ contract LoyaltyToken {
         emit Transfer(from, to, amount);
         return true;
     }
-
-    // View function untuk melihat backing ratio
-    function getBackingRatio() external view returns (uint256) {
-        if (totalSupply == 0) return 0;
-        return (idrxToken.balanceOf(address(this)) * 1e18) / totalSupply;
-    }
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-/// @title RewardManager - Handles IDRX backing, merchant quota, and point issuance
-contract RewardManager {
+/// @title TreasuryManager - Mengelola treasury dan flow baru
+contract TreasuryManager {
     address public owner;
-    LoyaltyToken public loyaltyToken;
+    PointifyToken public pointifyToken;
     IERC20 public immutable idrxToken;
+    address public treasury; // Treasury address untuk menyimpan IDRX
 
+    // Merchant management
     mapping(address => bool) public isApprovedMerchant;
-    mapping(address => uint256) public merchantQuota; // IDRX quota untuk setiap merchant
+    mapping(address => uint256) public merchantPLTBalance; // PLT balance merchant
 
-    event MerchantApproved(address indexed merchant, bool approved);
-    event UserRewarded(address indexed merchant, address indexed user, uint256 amount);
-    event TopUpIDRX(address indexed merchant, uint256 amount);
-    event WithdrawIDRX(address indexed merchant, uint256 amount);
+    // Events
+    event MerchantRegistered(address indexed merchant, bool approved);
+    event IDRXSwappedToPLT(address indexed merchant, uint256 idrxAmount, uint256 pltAmount);
+    event RewardSent(address indexed merchant, address indexed user, uint256 amount);
+    event RedemptionProcessed(address indexed user, address indexed merchant, uint256 pltAmount);
+    event PLTSwappedToIDRX(address indexed user, uint256 pltAmount, uint256 idrxAmount);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -174,325 +114,187 @@ contract RewardManager {
         _;
     }
 
-    constructor(address _idrxToken) {
+    constructor(address _idrxToken, address _treasury) {
         owner = msg.sender;
+        require(_idrxToken != address(0), "IDRX token address cannot be zero");
+        require(_treasury != address(0), "Treasury address cannot be zero");
+        
+        // Validasi bahwa token yang digunakan adalah IDRXMock
+        try IDRXMock(_idrxToken).symbol() returns (string memory tokenSymbol) {
+            require(
+                keccak256(abi.encodePacked(tokenSymbol)) == keccak256(abi.encodePacked("IDRX-MOCK")),
+                "TreasuryManager must use IDRX-Mock token"
+            );
+        } catch {
+            revert("Invalid IDRX-Mock token for TreasuryManager");
+        }
+        
         idrxToken = IERC20(_idrxToken);
+        treasury = _treasury;
     }
 
-    function setLoyaltyToken(address token) external onlyOwner {
-        loyaltyToken = LoyaltyToken(token);
+    function setPointifyToken(address _pointifyToken) external onlyOwner {
+        pointifyToken = PointifyToken(_pointifyToken);
     }
 
-    function approveMerchant(address merchant, bool approved) external onlyOwner {
+    function setTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+    }
+
+    /// @notice Step 1: Merchant Registration
+    function registerMerchant(address merchant, bool approved) external onlyOwner {
+        require(merchant != address(0), "Invalid merchant address");
+        
+        // Validasi merchant harus memiliki IDRX-Mock di wallet
+        uint256 merchantIDRXBalance = idrxToken.balanceOf(merchant);
+        require(merchantIDRXBalance > 0, "Merchant must have IDRX-Mock balance to register");
+        
         isApprovedMerchant[merchant] = approved;
-        emit MerchantApproved(merchant, approved);
+        emit MerchantRegistered(merchant, approved);
     }
 
-    // Merchant top up IDRX untuk mendapat quota
-    function topUpIDRX(uint256 amount) external onlyApprovedMerchant {
+    /// @notice Step 2: Swap IDRX → PLT (Merchant)
+    /// IDRX dari merchant → Treasury, PLT di-mint → Merchant
+    function swapIDRXToPLT(uint256 idrxAmount) external onlyApprovedMerchant {
+        require(idrxAmount > 0, "Amount must be > 0");
+        
+        // Transfer IDRX dari merchant ke treasury
+        require(idrxToken.transferFrom(msg.sender, treasury, idrxAmount), "IDRX transfer to treasury failed");
+        
+        // Mint PLT untuk merchant (1:1 ratio)
+        pointifyToken.mint(msg.sender, idrxAmount);
+        
+        // Update merchant PLT balance tracking
+        merchantPLTBalance[msg.sender] += idrxAmount;
+        
+        emit IDRXSwappedToPLT(msg.sender, idrxAmount, idrxAmount);
+    }
+
+    /// @notice Step 3: Merchant Send Reward to User
+    function sendReward(address user, uint256 amount) external onlyApprovedMerchant {
         require(amount > 0, "Amount must be > 0");
-        require(idrxToken.transferFrom(msg.sender, address(loyaltyToken), amount), "IDRX transfer failed");
-        merchantQuota[msg.sender] += amount;
-        emit TopUpIDRX(msg.sender, amount);
+        require(pointifyToken.balanceOf(msg.sender) >= amount, "Insufficient PLT balance");
+        require(merchantPLTBalance[msg.sender] >= amount, "Insufficient merchant quota");
+        
+        // Transfer PLT dari merchant ke user
+        require(pointifyToken.transferFrom(msg.sender, user, amount), "PLT transfer failed");
+        
+        // Update merchant balance tracking
+        merchantPLTBalance[msg.sender] -= amount;
+        
+        emit RewardSent(msg.sender, user, amount);
     }
 
-    // Merchant withdraw IDRX yang belum digunakan
-    function withdrawIDRX(uint256 amount) external onlyApprovedMerchant {
+    /// @notice Step 4: User Redeem to Merchant
+    /// PLT dari user → Merchant (kembali ke merchant)
+    function redeemToMerchant(address merchant, uint256 amount) external {
         require(amount > 0, "Amount must be > 0");
-        require(merchantQuota[msg.sender] >= amount, "Not enough quota");
-        merchantQuota[msg.sender] -= amount;
-        require(loyaltyToken.transferIDRX(msg.sender, amount), "IDRX transfer failed");
-        emit WithdrawIDRX(msg.sender, amount);
+        require(isApprovedMerchant[merchant], "Merchant not approved");
+        require(pointifyToken.balanceOf(msg.sender) >= amount, "Insufficient PLT balance");
+        
+        // Transfer PLT dari user kembali ke merchant
+        require(pointifyToken.transferFrom(msg.sender, merchant, amount), "PLT transfer failed");
+        
+        // Update merchant balance tracking
+        merchantPLTBalance[merchant] += amount;
+        
+        emit RedemptionProcessed(msg.sender, merchant, amount);
     }
 
-    // Issue loyalty points (harus ada quota IDRX)
-    function rewardUser(address user, uint256 amount) external onlyApprovedMerchant {
-        require(amount > 0, "Amount must be > 0");
-        require(merchantQuota[msg.sender] >= amount, "Not enough quota");
-        merchantQuota[msg.sender] -= amount;
-        loyaltyToken.mint(user, amount);
-        emit UserRewarded(msg.sender, user, amount);
+    /// @notice Step 5: Swap PLT → IDRX (User)
+    /// PLT di-burn, IDRX dari treasury → User
+    function swapPLTToIDRX(uint256 pltAmount) external {
+        require(pltAmount > 0, "Amount must be > 0");
+        require(pointifyToken.balanceOf(msg.sender) >= pltAmount, "Insufficient PLT balance");
+        
+        // Check treasury has enough IDRX
+        Treasury treasuryContract = Treasury(treasury);
+        uint256 treasuryIDRXBalance = treasuryContract.getIDRXBalance();
+        require(treasuryIDRXBalance >= pltAmount, "Insufficient treasury IDRX");
+        
+        // Burn PLT dari user
+        pointifyToken.burn(msg.sender, pltAmount);
+        
+        // Transfer IDRX dari treasury ke user (1:1 ratio)
+        require(treasuryContract.transferIDRX(msg.sender, pltAmount), "IDRX transfer from treasury failed");
+        
+        emit PLTSwappedToIDRX(msg.sender, pltAmount, pltAmount);
     }
 
-    // Emergency function untuk owner withdraw IDRX (jika diperlukan)
-    function emergencyWithdrawIDRX(uint256 amount) external onlyOwner {
-        require(loyaltyToken.transferIDRX(owner, amount), "IDRX transfer failed");
+    /// @notice Get treasury IDRX balance
+    function getTreasuryIDRXBalance() external view returns (uint256) {
+        return idrxToken.balanceOf(treasury);
     }
 
-    // Function untuk menambah quota merchant (dipanggil oleh RedemptionRouter)
-    function addMerchantQuota(address merchant, uint256 amount) external {
-        require(isApprovedMerchant[merchant], "Not approved merchant");
-        merchantQuota[merchant] += amount;
-        emit TopUpIDRX(merchant, amount); // Emit event untuk tracking
+    /// @notice Get total PLT supply
+    function getTotalPLTSupply() external view returns (uint256) {
+        return pointifyToken.totalSupply();
+    }
+
+    /// @notice Get backing ratio (Treasury IDRX / Total PLT)
+    function getBackingRatio() external view returns (uint256) {
+        uint256 totalPLT = pointifyToken.totalSupply();
+        if (totalPLT == 0) return 1e18; // 100% if no PLT exists
+        
+        uint256 treasuryIDRX = idrxToken.balanceOf(treasury);
+        return (treasuryIDRX * 1e18) / totalPLT; // Returns ratio in 18 decimals
+    }
+
+    /// @notice Emergency functions
+    function emergencyWithdrawFromTreasury(uint256 amount) external onlyOwner {
+        Treasury treasuryContract = Treasury(treasury);
+        require(treasuryContract.transferIDRX(owner, amount), "Emergency withdrawal failed");
+    }
+
+    function emergencyMint(address to, uint256 amount) external onlyOwner {
+        pointifyToken.mint(to, amount);
+    }
+
+    function emergencyBurn(address from, uint256 amount) external onlyOwner {
+        pointifyToken.burn(from, amount);
     }
 }
 
-/// @title RedemptionRouter - Handles automatic point redemption with IDRX payout (WITH BURN)
-contract RedemptionRouter {
-    address public owner;
-    LoyaltyToken public loyaltyToken;
-    RewardManager public rewardManager;
+/// @title Treasury - Simple treasury contract untuk menyimpan IDRX
+contract Treasury {
+    address public treasuryManager;
     IERC20 public immutable idrxToken;
-    
-    uint256 public platformFee; // Fee dalam basis points (100 = 1%)
-    address public feeRecipient;
 
-    event Redeemed(address indexed user, uint256 amount, uint256 payout, uint256 fee);
-    event ManualRedemption(address indexed user, uint256 amount, string item);
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
+    modifier onlyTreasuryManager() {
+        require(msg.sender == treasuryManager, "Not treasury manager");
         _;
     }
 
-    constructor(address _idrxToken, uint256 _platformFee, address _feeRecipient) {
-        owner = msg.sender;
+    constructor(address _idrxToken, address _treasuryManager) {
+        require(_idrxToken != address(0), "IDRX token address cannot be zero");
+        require(_treasuryManager != address(0), "Treasury manager address cannot be zero");
+        
+        // Validasi bahwa token yang digunakan adalah IDRXMock
+        try IDRXMock(_idrxToken).symbol() returns (string memory tokenSymbol) {
+            require(
+                keccak256(abi.encodePacked(tokenSymbol)) == keccak256(abi.encodePacked("IDRX-MOCK")),
+                "Treasury must use IDRX-Mock token"
+            );
+        } catch {
+            revert("Invalid IDRX-Mock token for Treasury");
+        }
+        
         idrxToken = IERC20(_idrxToken);
-        platformFee = _platformFee;
-        feeRecipient = _feeRecipient;
+        treasuryManager = _treasuryManager;
     }
 
-    function setLoyaltyToken(address token) external onlyOwner {
-        loyaltyToken = LoyaltyToken(token);
+    /// @notice Allow treasury manager to transfer IDRX
+    function transferIDRX(address to, uint256 amount) external onlyTreasuryManager returns (bool) {
+        return idrxToken.transfer(to, amount);
     }
 
-    function setRewardManager(address _rewardManager) external onlyOwner {
-        rewardManager = RewardManager(_rewardManager);
+    /// @notice Get IDRX balance
+    function getIDRXBalance() external view returns (uint256) {
+        return idrxToken.balanceOf(address(this));
     }
 
-    function setPlatformFee(uint256 _platformFee) external onlyOwner {
-        require(_platformFee <= 1000, "Fee too high"); // Max 10%
-        platformFee = _platformFee;
-    }
-
-    function setFeeRecipient(address _feeRecipient) external onlyOwner {
-        require(_feeRecipient != address(0), "Invalid address");
-        feeRecipient = _feeRecipient;
-    }
-
-    // User bisa redeem sendiri (automatic) - TRANSFER TOKEN KE MERCHANT (TIDAK BURN)
-    function redeemPoint(uint256 amount, address merchant) external {
-        require(amount > 0, "Amount must be > 0");
-        require(loyaltyToken.balanceOf(msg.sender) >= amount, "Not enough points");
-        require(merchant != address(0), "Invalid merchant address");
-        require(rewardManager.isApprovedMerchant(merchant), "Merchant not approved");
-        
-        uint256 totalIDRX = amount;
-        require(idrxToken.balanceOf(address(loyaltyToken)) >= totalIDRX, "Not enough IDRX in treasury");
-        
-        // Transfer loyalty tokens ke merchant (TIDAK BURN!)
-        require(loyaltyToken.redeemTransfer(msg.sender, merchant, amount), "PLT transfer to merchant failed");
-        
-        // Calculate fee and payout
-        uint256 fee = (platformFee * amount) / 10000;
-        uint256 payout = amount - fee;
-        
-        // Transfer IDRX ke user
-        require(loyaltyToken.transferIDRX(msg.sender, payout), "IDRX transfer failed");
-        if (fee > 0) {
-            require(loyaltyToken.transferIDRX(feeRecipient, fee), "Fee transfer failed");
-        }
-        
-        emit Redeemed(msg.sender, amount, payout, fee);
-    }
-
-    // Manual redemption oleh owner (untuk item fisik, dll) - TRANSFER TOKEN KE MERCHANT (TIDAK BURN)
-    function manualRedeem(address user, uint256 amount, string memory item, address merchant) external onlyOwner {
-        require(amount > 0, "Amount must be > 0");
-        require(loyaltyToken.balanceOf(user) >= amount, "User not enough points");
-        require(merchant != address(0), "Invalid merchant address");
-        require(rewardManager.isApprovedMerchant(merchant), "Merchant not approved");
-        
-        // Transfer loyalty tokens ke merchant (TIDAK BURN!)
-        require(loyaltyToken.redeemTransfer(user, merchant, amount), "PLT transfer to merchant failed");
-        
-        // Kembalikan IDRX ke quota merchant sebagai kompensasi produk yang diberikan
-        rewardManager.addMerchantQuota(merchant, amount);
-        
-        emit ManualRedemption(user, amount, item);
-    }
-
-    // Emergency function untuk owner withdraw IDRX
-    function emergencyWithdrawIDRX(uint256 amount) external onlyOwner {
-        require(loyaltyToken.transferIDRX(owner, amount), "IDRX transfer failed");
-    }
-}
-
-/// @title SwapRouter - Handles PLT swapping WITHOUT BURN (for trading)
-contract SwapRouter {
-    address public owner;
-    LoyaltyToken public loyaltyToken;
-    IERC20 public immutable idrxToken;
-    
-    // Swap pools untuk berbagai token pairs
-    mapping(address => uint256) public tokenReserves; // Token reserves dalam pool
-    mapping(address => uint256) public pltReserves;   // PLT reserves dalam pool
-    mapping(address => bool) public supportedTokens;  // Token yang didukung untuk swap
-    
-    uint256 public swapFee; // Fee dalam basis points (30 = 0.3%)
-    address public feeRecipient;
-
-    event TokenAdded(address indexed token);
-    event LiquidityAdded(address indexed token, uint256 tokenAmount, uint256 pltAmount);
-    event LiquidityRemoved(address indexed token, uint256 tokenAmount, uint256 pltAmount);
-    event Swapped(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
-    }
-
-    constructor(address _idrxToken, uint256 _swapFee, address _feeRecipient) {
-        owner = msg.sender;
-        idrxToken = IERC20(_idrxToken);
-        swapFee = _swapFee;
-        feeRecipient = _feeRecipient;
-    }
-
-    function setLoyaltyToken(address token) external onlyOwner {
-        loyaltyToken = LoyaltyToken(token);
-    }
-
-    function setSwapFee(uint256 _swapFee) external onlyOwner {
-        require(_swapFee <= 1000, "Fee too high"); // Max 10%
-        swapFee = _swapFee;
-    }
-
-    function setFeeRecipient(address _feeRecipient) external onlyOwner {
-        require(_feeRecipient != address(0), "Invalid address");
-        feeRecipient = _feeRecipient;
-    }
-
-    // Add supported token untuk swap
-    function addSupportedToken(address token) external onlyOwner {
-        require(token != address(0), "Invalid token address");
-        supportedTokens[token] = true;
-        emit TokenAdded(token);
-    }
-
-    // Add liquidity ke pool (owner only untuk simplicity)
-    function addLiquidity(address token, uint256 tokenAmount, uint256 pltAmount) external onlyOwner {
-        require(supportedTokens[token], "Token not supported");
-        require(tokenAmount > 0 && pltAmount > 0, "Invalid amounts");
-        
-        // Transfer tokens ke contract
-        require(IERC20(token).transferFrom(msg.sender, address(this), tokenAmount), "Token transfer failed");
-        require(loyaltyToken.transferFrom(msg.sender, address(this), pltAmount), "PLT transfer failed");
-        
-        // Update reserves
-        tokenReserves[token] += tokenAmount;
-        pltReserves[token] += pltAmount;
-        
-        emit LiquidityAdded(token, tokenAmount, pltAmount);
-    }
-
-    // Remove liquidity dari pool (owner only)
-    function removeLiquidity(address token, uint256 tokenAmount, uint256 pltAmount) external onlyOwner {
-        require(supportedTokens[token], "Token not supported");
-        require(tokenReserves[token] >= tokenAmount, "Not enough token reserves");
-        require(pltReserves[token] >= pltAmount, "Not enough PLT reserves");
-        
-        // Update reserves
-        tokenReserves[token] -= tokenAmount;
-        pltReserves[token] -= pltAmount;
-        
-        // Transfer tokens back
-        require(IERC20(token).transfer(msg.sender, tokenAmount), "Token transfer failed");
-        require(loyaltyToken.transfer(msg.sender, pltAmount), "PLT transfer failed");
-        
-        emit LiquidityRemoved(token, tokenAmount, pltAmount);
-    }
-
-    // Swap PLT ke token lain (TANPA BURN!)
-    function swapPLTForToken(address token, uint256 pltAmount) external {
-        require(supportedTokens[token], "Token not supported");
-        require(pltAmount > 0, "Invalid amount");
-        require(loyaltyToken.balanceOf(msg.sender) >= pltAmount, "Not enough PLT");
-        
-        // Calculate output amount using constant product formula (x * y = k)
-        uint256 tokenOut = getAmountOut(pltAmount, pltReserves[token], tokenReserves[token]);
-        require(tokenOut > 0, "Insufficient output amount");
-        require(tokenReserves[token] >= tokenOut, "Not enough token reserves");
-        
-        // Calculate fee
-        uint256 fee = (swapFee * tokenOut) / 10000;
-        uint256 finalTokenOut = tokenOut - fee;
-        
-        // Transfer PLT dari user ke contract (TIDAK BURN!)
-        require(loyaltyToken.swapTransfer(msg.sender, address(this), pltAmount), "PLT transfer failed");
-        
-        // Update reserves
-        pltReserves[token] += pltAmount;
-        tokenReserves[token] -= tokenOut;
-        
-        // Transfer token ke user
-        require(IERC20(token).transfer(msg.sender, finalTokenOut), "Token transfer failed");
-        
-        // Transfer fee ke fee recipient
-        if (fee > 0) {
-            require(IERC20(token).transfer(feeRecipient, fee), "Fee transfer failed");
-        }
-        
-        emit Swapped(msg.sender, address(loyaltyToken), token, pltAmount, finalTokenOut);
-    }
-
-    // Swap token lain ke PLT (TANPA BURN!)
-    function swapTokenForPLT(address token, uint256 tokenAmount) external {
-        require(supportedTokens[token], "Token not supported");
-        require(tokenAmount > 0, "Invalid amount");
-        require(IERC20(token).balanceOf(msg.sender) >= tokenAmount, "Not enough tokens");
-        
-        // Calculate output amount
-        uint256 pltOut = getAmountOut(tokenAmount, tokenReserves[token], pltReserves[token]);
-        require(pltOut > 0, "Insufficient output amount");
-        require(pltReserves[token] >= pltOut, "Not enough PLT reserves");
-        
-        // Calculate fee
-        uint256 fee = (swapFee * pltOut) / 10000;
-        uint256 finalPLTOut = pltOut - fee;
-        
-        // Transfer token dari user ke contract
-        require(IERC20(token).transferFrom(msg.sender, address(this), tokenAmount), "Token transfer failed");
-        
-        // Update reserves
-        tokenReserves[token] += tokenAmount;
-        pltReserves[token] -= pltOut;
-        
-        // Transfer PLT ke user (TIDAK BURN!)
-        require(loyaltyToken.transfer(msg.sender, finalPLTOut), "PLT transfer failed");
-        
-        // Transfer fee ke fee recipient
-        if (fee > 0) {
-            require(loyaltyToken.transfer(feeRecipient, fee), "Fee transfer failed");
-        }
-        
-        emit Swapped(msg.sender, token, address(loyaltyToken), tokenAmount, finalPLTOut);
-    }
-
-    // Calculate output amount untuk swap (constant product formula)
-    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) public pure returns (uint256) {
-        require(amountIn > 0, "Invalid input amount");
-        require(reserveIn > 0 && reserveOut > 0, "Invalid reserves");
-        
-        uint256 amountInWithFee = amountIn * 997; // 0.3% fee
-        uint256 numerator = amountInWithFee * reserveOut;
-        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-        
-        return numerator / denominator;
-    }
-
-    // Get current exchange rate
-    function getExchangeRate(address token) external view returns (uint256) {
-        if (pltReserves[token] == 0) return 0;
-        return (tokenReserves[token] * 1e18) / pltReserves[token];
-    }
-
-    // Emergency function untuk owner withdraw tokens
-    function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
-        if (token == address(loyaltyToken)) {
-            require(loyaltyToken.transfer(owner, amount), "PLT transfer failed");
-        } else {
-            require(IERC20(token).transfer(owner, amount), "Token transfer failed");
-        }
+    /// @notice Emergency function
+    function emergencyWithdraw(address to, uint256 amount) external onlyTreasuryManager {
+        idrxToken.transfer(to, amount);
     }
 }
