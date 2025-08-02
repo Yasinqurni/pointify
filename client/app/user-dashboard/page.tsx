@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { mockGetUserLoyalBalance } from "@/lib/ethers"
-import { getPltBalance, redeemToMerchant, checkApprovalNeeded, safeApprove } from "@/lib/plt-swap-contract"
+import { getPltBalance, redeemToMerchant, checkPltApprovalNeeded, safeApprove } from "@/lib/plt-swap-contract"
 import { ethers } from "ethers"
 import { motion } from "framer-motion"
 import { QRCodeSVG } from "qrcode.react" // Import QRCode
@@ -221,9 +221,23 @@ export default function UserDashboardPage() {
     setTransactionHash("")
     
     try {
+      // Check if MetaMask is installed and connected
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error("MetaMask is not installed. Please install MetaMask to continue.")
+      }
+
+      // Request account access
+      await window.ethereum.request({ method: 'eth_requestAccounts' })
+      
       // Get the user's wallet provider (MetaMask, etc.)
       const provider = new ethers.providers.Web3Provider(window.ethereum)
       const signer = provider.getSigner()
+
+      // Verify the connected account matches the expected wallet address
+      const connectedAddress = await signer.getAddress()
+      if (connectedAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        throw new Error(`Connected wallet address (${connectedAddress}) doesn't match expected address (${walletAddress})`)
+      }
 
       // Get merchant address from the reward data
       const merchantAddress = selectedReward.merchant?.walletAddress || selectedReward.merchantWalletAddress
@@ -233,7 +247,9 @@ export default function UserDashboardPage() {
       }
 
       // Check if PLT token approval is needed
-      const approvalNeeded = await checkApprovalNeeded(walletAddress, selectedReward.requiredPoints)
+      const approvalNeeded = await checkPltApprovalNeeded(walletAddress, selectedReward.requiredPoints)
+      console.log('🔍 Approval needed:', approvalNeeded)
+      
       if (approvalNeeded) {
         console.log("🔍 PLT approval needed, requesting approval...")
         setRedemptionStep('approving')
@@ -244,6 +260,7 @@ export default function UserDashboardPage() {
         
         // Get PLT token contract
         const pltTokenAddress = "0x04f0c7778AD75B535Ca478Cc01eA8574C7Ca3A7E" // PLT token address
+        console.log('🔍 Creating PLT token contract with address:', pltTokenAddress)
         const pltTokenContract = new ethers.Contract(pltTokenAddress, [
           "function approve(address spender, uint256 amount) returns (bool)",
           "function allowance(address owner, address spender) view returns (uint256)"
@@ -251,12 +268,18 @@ export default function UserDashboardPage() {
         
         // Approve PLT tokens for the swap contract
         const approveAmount = ethers.utils.parseUnits(selectedReward.requiredPoints.toString(), 18)
-        await safeApprove(pltTokenContract, "0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75", approveAmount, signer)
+        console.log('🔍 Approving amount:', approveAmount.toString())
+        console.log('🔍 For spender:', "0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75")
+        
+        const approvalTxHash = await safeApprove(pltTokenContract, "0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75", approveAmount, signer)
+        console.log('🔍 Approval transaction hash:', approvalTxHash)
         
         toast({
           title: "Approval Successful",
           description: "PLT tokens approved. Proceeding with redemption...",
         })
+      } else {
+        console.log("🔍 No approval needed, proceeding directly to redemption...")
       }
 
       // Call the blockchain redemption function directly

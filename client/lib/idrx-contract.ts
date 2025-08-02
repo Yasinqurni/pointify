@@ -5,7 +5,7 @@ import { useWalletStore } from './store'
 export const IDRX_CONTRACT_ADDRESS = '0x7222435AC83D6c44052eB635112842Da458AEfD8'
 
 // Lisk Sepolia RPC URL
-export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia-api.lisk.com'
+export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia.lisk.com'
 
 // ERC-20 ABI for balance reading
 export const ERC20_ABI = [

@@ -38,6 +38,9 @@ let RedemptionsController = class RedemptionsController {
     async confirmClaimById(req, id) {
         return this.redemptionsService.confirmClaimById(req.user.userId, id);
     }
+    async completeRedemption(completeRedemptionDto) {
+        return this.redemptionsService.completeRedemption(completeRedemptionDto);
+    }
     async getUserRedemptions(req) {
         return this.redemptionsService.getUserRedemptions(req.user.userId);
     }
@@ -139,6 +142,21 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], RedemptionsController.prototype, "confirmClaimById", null);
+__decorate([
+    (0, common_1.Post)('complete'),
+    (0, swagger_1.ApiOperation)({ summary: 'Complete redemption after blockchain transaction' }),
+    (0, swagger_1.ApiResponse)({
+        status: 201,
+        description: 'Redemption completed successfully',
+        type: redemption_dto_1.RedemptionResponseDto,
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid request data' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Reward or user not found' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [redemption_dto_1.CompleteRedemptionDto]),
+    __metadata("design:returntype", Promise)
+], RedemptionsController.prototype, "completeRedemption", null);
 __decorate([
     (0, common_1.Get)('user'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

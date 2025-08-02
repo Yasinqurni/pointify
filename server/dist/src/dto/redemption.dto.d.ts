@@ -7,6 +7,11 @@ export declare class VerifyClaimCodeDto {
 export declare class ConfirmClaimDto {
     redemptionId: string;
 }
+export declare class CompleteRedemptionDto {
+    rewardId: string;
+    walletAddress: string;
+    transactionHash: string;
+}
 export declare class RedemptionResponseDto {
     id: string;
     status: string;

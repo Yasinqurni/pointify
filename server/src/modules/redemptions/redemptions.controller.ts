@@ -20,6 +20,7 @@ import {
   RedeemRewardDto,
   VerifyClaimCodeDto,
   ConfirmClaimDto,
+  CompleteRedemptionDto,
   RedemptionResponseDto,
 } from '../../dto/redemption.dto';
 
@@ -120,6 +121,21 @@ export class RedemptionsController {
     @Param('id') id: string,
   ): Promise<void> {
     return this.redemptionsService.confirmClaimById(req.user.userId, id);
+  }
+
+  @Post('complete')
+  @ApiOperation({ summary: 'Complete redemption after blockchain transaction' })
+  @ApiResponse({
+    status: 201,
+    description: 'Redemption completed successfully',
+    type: RedemptionResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 404, description: 'Reward or user not found' })
+  async completeRedemption(
+    @Body() completeRedemptionDto: CompleteRedemptionDto,
+  ): Promise<RedemptionResponseDto> {
+    return this.redemptionsService.completeRedemption(completeRedemptionDto);
   }
 
   @Get('user')

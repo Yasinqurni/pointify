@@ -10,6 +10,7 @@ import {
   RedeemRewardDto,
   VerifyClaimCodeDto,
   ConfirmClaimDto,
+  CompleteRedemptionDto,
   RedemptionResponseDto,
 } from '../../dto/redemption.dto';
 import { ethers } from 'ethers';
@@ -293,6 +294,88 @@ export class RedemptionsService {
         redeemedAt: new Date(),
       },
     });
+  }
+
+  async completeRedemption(
+    completeRedemptionDto: CompleteRedemptionDto,
+  ): Promise<RedemptionResponseDto> {
+    const { rewardId, walletAddress, transactionHash } = completeRedemptionDto;
+
+    // Get reward details
+    const reward = await this.prisma.reward.findUnique({
+      where: { id: rewardId },
+      include: { merchant: true },
+    });
+
+    if (!reward) {
+      throw new NotFoundException('Reward not found');
+    }
+
+    // Get or create user
+    let user = await this.prisma.user.findUnique({
+      where: { walletAddress: walletAddress },
+    });
+
+    if (!user) {
+      // Create user if doesn't exist
+      user = await this.prisma.user.create({
+        data: {
+          walletAddress: walletAddress,
+          email: null,
+          username: null,
+        },
+      });
+    }
+
+    // Generate unique claim code
+    const claimCode = ethers
+      .id(Date.now().toString() + user.id + rewardId)
+      .slice(0, 8)
+      .toUpperCase();
+
+    // Create redemption record with CLAIMED status since blockchain transaction already happened
+    const redemption = await this.prisma.redemption.create({
+      data: {
+        userId: user.id,
+        rewardId,
+        merchantId: reward.merchantId,
+        claimCode,
+        status: 'CLAIMED',
+        redeemedAt: new Date(),
+        transactionHash, // Store the transaction hash
+      },
+      include: {
+        reward: true,
+        merchant: true,
+        user: true,
+      },
+    });
+
+    // Create point transaction record
+    await this.prisma.pointTransaction.create({
+      data: {
+        userId: user.id,
+        merchantId: reward.merchantId,
+        redemptionId: redemption.id,
+        amount: -reward.requiredPoints,
+        type: 'SPENT',
+      },
+    });
+
+    return {
+      id: redemption.id,
+      status: redemption.status,
+      claimCode: redemption.claimCode,
+      redeemedAt: redemption.redeemedAt || undefined,
+      createdAt: redemption.createdAt,
+      updatedAt: redemption.updatedAt,
+      userId: redemption.userId,
+      rewardId: redemption.rewardId,
+      rewardTitle: redemption.reward.title,
+      merchantId: redemption.merchantId,
+      merchantName: redemption.merchant.name,
+      redeemedPoints: reward.requiredPoints,
+    };
   }
 
   async getUserRedemptions(userId: string): Promise<RedemptionResponseDto[]> {
