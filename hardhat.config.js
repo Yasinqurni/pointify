@@ -28,9 +28,9 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      "lisk-sepolia": "123",
-      liskTestnet: process.env.LISK_API_KEY,
-      liskMainnet: process.env.LISK_API_KEY,
+      "lisk-sepolia": process.env.LISK_API_KEY || "abc123",
+      liskTestnet: process.env.LISK_API_KEY || "abc123",
+      liskMainnet: process.env.LISK_API_KEY || "abc123",
     },
     customChains: [
       {
@@ -45,8 +45,8 @@ module.exports = {
         network: "liskTestnet",
         chainId: 4202,
         urls: {
-          apiURL: "https://explorer.testnet.lisk.com/api",
-          browserURL: "https://explorer.testnet.lisk.com"
+          apiURL: "https://sepolia-blockscout.lisk.com/api",
+          browserURL: "https://sepolia-blockscout.lisk.com"
         }
       },
       {
@@ -60,3 +60,41 @@ module.exports = {
     ]
   }
 };
+
+// Loyalty Point Tasks
+task("deploy-loyalty", "Deploy Loyalty Point contracts")
+  .setAction(async () => {
+    await run("run", { script: "scripts/deploy-loyalty-point.js" });
+  });
+
+task("test-loyalty", "Test Loyalty Point functionality")
+  .setAction(async () => {
+    await run("run", { script: "scripts/test-loyalty-point.js" });
+  });
+
+task("demo-loyalty", "Run Loyalty Point demo")
+  .setAction(async () => {
+    await run("run", { script: "scripts/demo-loyalty-point.js" });
+  });
+
+// Task untuk mint IDRX-Mock
+task("mint-idrx", "Mint IDRX-Mock tokens to wallets")
+    .addOptionalParam("address", "Target address to mint to")
+    .addOptionalParam("amount", "Amount to mint (in ether)", "10000")
+    .setAction(async (taskArgs, hre) => {
+        await hre.run("compile");
+        await hre.run("run", { script: "scripts/mint-idrx-mock.js" });
+    });
+
+// Task untuk test merchant validation
+task("test-merchant", "Test merchant registration validation")
+    .setAction(async (taskArgs, hre) => {
+        await hre.run("compile");
+        await hre.run("run", { script: "scripts/test-merchant-validation.js" });
+    });
+
+// Task untuk verify contracts
+task("verify-contracts", "Verify deployed contracts on block explorer")
+    .setAction(async (taskArgs, hre) => {
+        await hre.run("run", { script: "scripts/verify-contracts.js" });
+    });
