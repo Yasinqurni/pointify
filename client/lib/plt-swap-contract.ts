@@ -133,7 +133,13 @@ export function clearPltBalanceCache(address?: string): void {
  */
 export async function checkTokenSupport(tokenAddress: string): Promise<boolean> {
   try {
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, assuming token supports ERC20')
+      return true
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider)
     
     // Try to call a basic ERC20 function
@@ -150,7 +156,13 @@ export async function checkTokenSupport(tokenAddress: string): Promise<boolean> 
  */
 export async function checkApprovedMerchant(userAddress: string): Promise<boolean> {
   try {
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, assuming not approved')
+      return false
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const swapContract = new ethers.Contract(PLT_SWAP_CONTRACT_ADDRESS, PLT_SWAP_ABI, provider)
     
     const isApproved = await swapContract.isApprovedMerchant(userAddress)
@@ -168,7 +180,17 @@ export async function checkApprovedMerchant(userAddress: string): Promise<boolea
  */
 export async function getGasInfo(amount: number): Promise<GasInfo> {
   try {
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, returning unknown gas info')
+      return {
+        gasPrice: 'Unknown',
+        estimatedGas: 'Unknown',
+        totalCost: 'Unknown'
+      }
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const gasPrice = await provider.getGasPrice()
     
     // Estimate gas for swap transaction
@@ -196,7 +218,7 @@ export async function getGasInfo(amount: number): Promise<GasInfo> {
 }
 
 /**
- * Get PLT balance for a specific address
+ * Get PLT balance for a given address
  */
 export async function getPltBalance(address: string): Promise<number> {
   try {
@@ -205,7 +227,13 @@ export async function getPltBalance(address: string): Promise<number> {
       return cachedBalance
     }
 
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, returning cached balance or 0')
+      return cachedBalance || 0
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const pltContract = new ethers.Contract(PLT_TOKEN_ADDRESS, ERC20_ABI, provider)
     
     const balance = await pltContract.balanceOf(address)
@@ -230,7 +258,13 @@ export async function checkPltApprovalNeeded(
     console.log('PLT Token Address:', PLT_TOKEN_ADDRESS)
     console.log('Swap Contract Address:', PLT_SWAP_CONTRACT_ADDRESS)
     
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, assuming approval needed')
+      return true
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const pltTokenContract = new ethers.Contract(PLT_TOKEN_ADDRESS, ERC20_ABI, provider)
     
     const allowance = await pltTokenContract.allowance(userAddress, PLT_SWAP_CONTRACT_ADDRESS)
@@ -259,7 +293,13 @@ export async function checkApprovalNeeded(
     console.log('IDRX Token Address:', IDRX_TOKEN_ADDRESS)
     console.log('Swap Contract Address:', PLT_SWAP_CONTRACT_ADDRESS)
     
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, assuming approval needed')
+      return true
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const idrxTokenContract = new ethers.Contract(IDRX_TOKEN_ADDRESS, ERC20_ABI, provider)
     
     const allowance = await idrxTokenContract.allowance(userAddress, PLT_SWAP_CONTRACT_ADDRESS)
@@ -476,18 +516,32 @@ export async function redeemToMerchant(
 ): Promise<SwapStatus> {
   try {
     console.log('Redeeming PLT to merchant...')
+    
+    // Validate and normalize the merchant address
+    let normalizedAddress: string
+    try {
+      normalizedAddress = ethers.utils.getAddress(merchantAddress)
+      console.log('Normalized merchant address:', normalizedAddress)
+    } catch (addressError) {
+      console.error('Invalid merchant address:', merchantAddress)
+      return {
+        status: 'error',
+        error: `Invalid merchant address: ${merchantAddress}`
+      }
+    }
+    
     const swapContract = new ethers.Contract(PLT_SWAP_CONTRACT_ADDRESS, PLT_SWAP_ABI, signer)
     
     const redeemAmount = ethers.utils.parseEther(amount.toString())
     
     // Estimate gas first
-    const gasEstimate = await swapContract.estimateGas.redeemToMerchant(merchantAddress, redeemAmount)
+    const gasEstimate = await swapContract.estimateGas.redeemToMerchant(normalizedAddress, redeemAmount)
     console.log('Estimated gas for redemption:', gasEstimate.toString())
     
     // Add 20% buffer for gas
     const gasLimit = gasEstimate.mul(120).div(100)
     
-    const tx = await swapContract.redeemToMerchant(merchantAddress, redeemAmount, {
+    const tx = await swapContract.redeemToMerchant(normalizedAddress, redeemAmount, {
       gasLimit: gasLimit
     })
     

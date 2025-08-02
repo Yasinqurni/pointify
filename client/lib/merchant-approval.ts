@@ -59,7 +59,13 @@ export async function approveMerchant(
  */
 export async function checkMerchantApproval(merchantAddress: string): Promise<boolean> {
   try {
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, assuming not approved')
+      return false
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const contract = new ethers.Contract(MERCHANT_REGISTRY_ADDRESS, MERCHANT_APPROVAL_ABI, provider)
     
     const isApproved = await contract.isApprovedMerchant(merchantAddress)

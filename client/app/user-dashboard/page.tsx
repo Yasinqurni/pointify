@@ -240,10 +240,19 @@ export default function UserDashboardPage() {
       }
 
       // Get merchant address from the reward data
-      const merchantAddress = selectedReward.merchant?.walletAddress || selectedReward.merchantWalletAddress
+      let merchantAddress = selectedReward.merchant?.walletAddress || selectedReward.merchantWalletAddress
       if (!merchantAddress) {
         console.error("❌ Merchant wallet address missing from reward:", selectedReward)
         throw new Error("Merchant address not found for this reward")
+      }
+
+      // Validate and normalize the merchant address
+      try {
+        merchantAddress = ethers.utils.getAddress(merchantAddress)
+        console.log('🔍 Normalized merchant address:', merchantAddress)
+      } catch (addressError) {
+        console.error("❌ Invalid merchant address:", merchantAddress)
+        throw new Error(`Invalid merchant address: ${merchantAddress}`)
       }
 
       // Check if PLT token approval is needed

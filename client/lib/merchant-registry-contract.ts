@@ -65,8 +65,11 @@ export async function registerMerchantOnContract(
       const signer = signerProvider.getSigner()
       contract = new ethers.Contract(MERCHANT_REGISTRY_ADDRESS, MERCHANT_REGISTRY_ABI, signer)
     } else {
-      // Use readonly provider for view calls
-      const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+      // Use the user's connected wallet provider instead of a separate RPC provider
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('No wallet detected')
+      }
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
       contract = new ethers.Contract(MERCHANT_REGISTRY_ADDRESS, MERCHANT_REGISTRY_ABI, provider)
     }
     
@@ -95,7 +98,13 @@ export async function registerMerchantOnContract(
  */
 export async function getMerchantStatus(merchantAddress: string): Promise<boolean | null> {
   try {
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, returning null')
+      return null
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     const contract = new ethers.Contract(MERCHANT_REGISTRY_ADDRESS, MERCHANT_REGISTRY_ABI, provider)
     
     // Note: This assumes the contract has a view function to check status

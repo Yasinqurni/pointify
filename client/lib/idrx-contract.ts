@@ -15,7 +15,7 @@ export const ERC20_ABI = [
 
 /**
  * Fetch IDRX token balance from contract
- * Uses a custom provider for Lisk Sepolia testnet: https://rpc.sepolia-api.lisk.com
+ * Uses the user's connected wallet provider
  * Fetches the connected wallet address
  * Reads the ERC20 balance from this contract: 0x7222435AC83D6c44052eB635112842Da458AEfD8
  */
@@ -32,10 +32,14 @@ export async function getIDRXBalance(address?: string): Promise<number> {
     }
 
     console.log('FETCHING IDRX BALANCE FOR:', address)
-    console.log('USING LISK SEPOLIA RPC:', LISK_SEPOLIA_RPC)
     
-    // Create custom provider for Lisk Sepolia
-    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    // Use the user's connected wallet provider instead of a separate RPC provider
+    if (typeof window === 'undefined' || !window.ethereum) {
+      console.warn('No wallet detected, returning 0')
+      return 0
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
     
     // Verify network
     const network = await provider.getNetwork()
