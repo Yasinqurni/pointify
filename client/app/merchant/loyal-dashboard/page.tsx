@@ -9,16 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Users, Loader2, Award, Sparkles, Wallet, Coins, TrendingUp } from "lucide-react"
-import { mockRewardUser } from "@/lib/ethers"
-import { balanceService } from "@/lib/balance-service"
-import { MockAddressScanner } from "@/components/mock-address-scanner"
-import { NetworkWarning } from "@/components/network-warning"
-import { 
-  fetchMerchantDashboardData, 
-  fetchMerchantLoyaltyProgram,
-  fetchMerchantData 
-} from "@/lib/api"
+import { mockGetMerchantLoyalBalance, mockGetUserLoyalBalance, mockGetTotalLoyalRewarded } from "@/lib/ethers"
+import { sendRewardToUser } from "@/lib/reward-contract"
+import { fetchMerchantDashboardData, fetchMerchantLoyaltyProgram, fetchMerchantData } from "@/lib/api"
 import { authService } from "@/lib/auth"
+import { ethers } from "ethers"
 
 
 // Define a mock conversion rate: 1 USD = 1 LOYAL point
@@ -97,7 +92,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
         setLoyaltyProgram(loyalty)
 
         // Load blockchain balances
-        await balanceService.refreshBalances(walletAddress, 'merchant')
+        // await balanceService.refreshBalances(walletAddress, 'merchant') // This line is removed as per the new_code
 
       } catch (error: any) {
         console.error("Failed to load merchant data:", error)
@@ -154,23 +149,37 @@ const MerchantLoyalDashboardPage: React.FC = () => {
     setIsRewarding(true)
     setRewardSuccessMessage(null)
     try {
-      await mockRewardUser(walletAddress, customerAddress, amountToReward)
-
-      // Update balances in store
-      const currentMerchantBalance = useWalletStore.getState().merchantLoyalBalance || 0
-      const currentTotalRewarded = useWalletStore.getState().totalLoyalRewarded || 0
+      // Get wallet signer for blockchain transaction
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error("No wallet detected. Please install MetaMask or another wallet.")
+      }
       
-      setMerchantLoyalBalance(currentMerchantBalance - amountToReward)
-      setTotalLoyalRewarded(currentTotalRewarded + amountToReward)
+      // Request account access
+      await window.ethereum.request({ method: 'eth_requestAccounts' })
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const signer = provider.getSigner()
 
-      toast({
-        title: "Customer Rewarded!",
-        description: `${amountToReward} LOYAL points sent to ${customerAddress.slice(0, 6)}...${customerAddress.slice(-4)}.`,
-      })
-      setRewardSuccessMessage(`Successfully rewarded ${amountToReward} LOYAL points!`)
-      setCustomerAddress("")
-      setPriceAmount("")
-      setRewardSuccessMessage(null)
+      const rewardResult = await sendRewardToUser(customerAddress, amountToReward, signer)
+
+      if (rewardResult.status === 'success') {
+        // Update balances in store
+        const currentMerchantBalance = useWalletStore.getState().merchantLoyalBalance || 0
+        const currentTotalRewarded = useWalletStore.getState().totalLoyalRewarded || 0
+
+        setMerchantLoyalBalance(currentMerchantBalance - amountToReward)
+        setTotalLoyalRewarded(currentTotalRewarded + amountToReward)
+
+        setRewardSuccessMessage(`Successfully rewarded ${amountToReward} PLT points!`)
+        setCustomerAddress("")
+        setPriceAmount("")
+        
+        toast({
+          title: "Customer Rewarded!",
+          description: `${amountToReward} PLT points sent to ${customerAddress.slice(0, 6)}...${customerAddress.slice(-4)}.`,
+        })
+      } else {
+        throw new Error(rewardResult.error || 'Reward failed')
+      }
     } catch (error: any) {
       console.error("Failed to reward customer:", error)
       toast({
@@ -201,7 +210,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
   return (
     <>
       <main className="flex flex-1 flex-col items-center p-4 md:p-8">
-        <NetworkWarning className="mb-4 w-full max-w-6xl" />
+        {/* NetworkWarning is removed as per the new_code */}
         <Card className="w-full max-w-6xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl">
@@ -262,7 +271,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-blue-600">{merchantLoyalBalance || 0}</div>
-                        <p className="text-sm text-muted-foreground">LOYAL Balance</p>
+                        <p className="text-sm text-muted-foreground">PLT Balance</p>
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-green-600">{merchantIDRXBalance?.toFixed(2) || "0.00"}</div>
@@ -295,7 +304,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{dashboardData?.totalPointsIssued || 0}</div>
-                      <p className="text-xs text-muted-foreground">LOYAL points distributed</p>
+                      <p className="text-xs text-muted-foreground">PLT points distributed</p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -317,14 +326,14 @@ const MerchantLoyalDashboardPage: React.FC = () => {
                       <Sparkles className="h-5 w-5" /> Reward a Customer
                     </CardTitle>
                     <CardDescription>
-                      Issue LOYAL points to a customer&apos;s wallet based on purchase price.
+                      Issue PLT points to a customer&apos;s wallet based on purchase price.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleRewardCustomer} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="customer-address">Customer Wallet Address</Label>
-                        <MockAddressScanner onScan={setCustomerAddress} />
+                        {/* MockAddressScanner is removed as per the new_code */}
                         {customerAddress && (
                           <p className="text-sm text-muted-foreground mt-2">
                             Selected Address:{" "}
@@ -345,9 +354,9 @@ const MerchantLoyalDashboardPage: React.FC = () => {
                           step="0.01"
                         />
                         <CardDescription className="text-sm">
-                          This price will be converted to {LOYAL_POINTS_PER_USD} LOYAL point per USD.
+                          This price will be converted to {LOYAL_POINTS_PER_USD} PLT point per USD.
                           <br />
-                          Calculated LOYAL Points: <span className="font-semibold">{calculatedLoyalPoints}</span>
+                          Calculated PLT Points: <span className="font-semibold">{calculatedLoyalPoints}</span>
                         </CardDescription>
                       </div>
                       <Button
@@ -408,7 +417,7 @@ const MerchantLoyalDashboardPage: React.FC = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-xl">Your Loyal Customers</CardTitle>
-                      <CardDescription>A list of customers with LOYAL points from your program.</CardDescription>
+                      <CardDescription>A list of customers with PLT points from your program.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="overflow-x-auto">

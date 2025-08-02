@@ -3,7 +3,7 @@ import { ethers } from 'ethers'
 // Contract addresses
 export const PLT_SWAP_CONTRACT_ADDRESS = '0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75'
 export const PLT_TOKEN_ADDRESS = '0x04f0c7778AD75B535Ca478Cc01eA8574C7Ca3A7E'
-export const IDRX_TOKEN_ADDRESS = '0x7222435AC83D6c44052eB635112842Da458AEfD8' // IDRX token address
+export const IDRX_TOKEN_ADDRESS = '0x7222435AC83D6c44052eB635112842Da458AEfD8'
 
 // Lisk Sepolia RPC URL
 export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia.lisk.com'
@@ -222,8 +222,12 @@ export async function getGasInfo(amount: number): Promise<GasInfo> {
  */
 export async function getPltBalance(address: string): Promise<number> {
   try {
+    console.log('🔍 Getting PLT balance for address:', address)
+    console.log('🔍 PLT Token Address:', PLT_TOKEN_ADDRESS)
+    
     const cachedBalance = getCachedPltBalance(address)
     if (cachedBalance !== null) {
+      console.log('🔍 Using cached PLT balance:', cachedBalance)
       return cachedBalance
     }
 
@@ -234,14 +238,24 @@ export async function getPltBalance(address: string): Promise<number> {
     }
 
     const provider = new ethers.providers.Web3Provider(window.ethereum)
-    const pltContract = new ethers.Contract(PLT_TOKEN_ADDRESS, ERC20_ABI, provider)
+    console.log('🔍 Provider created')
     
+    const pltContract = new ethers.Contract(PLT_TOKEN_ADDRESS, ERC20_ABI, provider)
+    console.log('🔍 PLT contract created')
+    
+    console.log('🔍 Calling balanceOf on PLT contract...')
     const balance = await pltContract.balanceOf(address)
+    console.log('🔍 Raw balance from contract:', balance.toString())
+    
     const balanceEth = parseFloat(ethers.utils.formatEther(balance))
+    console.log('🔍 Formatted balance:', balanceEth)
+    
     cachePltBalance(address, balanceEth)
+    console.log('🔍 PLT balance cached')
+    
     return balanceEth
   } catch (error) {
-    console.error('Failed to get PLT balance:', error)
+    console.error('❌ Failed to get PLT balance:', error)
     return 0
   }
 }

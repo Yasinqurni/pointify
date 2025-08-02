@@ -8,15 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Loader2, Scan, CheckCircle, Sparkles, DollarSign, ArrowLeft, QrCode, Keyboard, X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { 
-  mockRewardUser, 
-  mockGetMerchantLoyalBalance,
-  checkUserBalanceForRedemption 
+  mockGetUserLoyalBalance 
 } from "@/lib/ethers"
+import { getPltBalance, clearPltBalanceCache } from "@/lib/plt-swap-contract"
+import { sendRewardToUser } from "@/lib/reward-contract"
 import { getLoyaltySettings, type LoyaltySettings } from "@/lib/api"
 import { useWalletStore } from "@/lib/store"
 import { RealQRScanner } from "@/components/real-qr-scanner"
 import { motion, AnimatePresence } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ethers } from "ethers"
 
 export default function RewardCustomerPage() {
   console.log("🚀 RewardCustomerPage component rendering...")
@@ -40,6 +41,28 @@ export default function RewardCustomerPage() {
   const [loadingMessage, setLoadingMessage] = useState("")
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
   const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings | null>(null)
+  const [pltBalance, setPltBalance] = useState<number>(0)
+  const [loadingPltBalance, setLoadingPltBalance] = useState(true)
+  const [approvalStep, setApprovalStep] = useState<"none" | "approving" | "approved">("none")
+
+  // Load PLT balance
+  const loadPltBalance = async () => {
+    if (!walletAddress) return
+    
+    try {
+      setLoadingPltBalance(true)
+      // Clear cache to force fresh read
+      clearPltBalanceCache(walletAddress)
+      const balance = await getPltBalance(walletAddress)
+      setPltBalance(balance)
+      console.log('✅ RewardCustomerPage: PLT balance loaded:', balance)
+    } catch (error) {
+      console.error('❌ Failed to load PLT balance:', error)
+      setPltBalance(0)
+    } finally {
+      setLoadingPltBalance(false)
+    }
+  }
 
   // Load loyalty settings
   useEffect(() => {
@@ -61,6 +84,13 @@ export default function RewardCustomerPage() {
       loadLoyaltySettings()
     }
   }, [userType, toast])
+
+  // Load PLT balance
+  useEffect(() => {
+    if (walletAddress && userType === "merchant") {
+      loadPltBalance()
+    }
+  }, [walletAddress, userType])
 
   useEffect(() => {
     const amount = Number.parseFloat(priceAmount)
@@ -120,22 +150,14 @@ export default function RewardCustomerPage() {
     }
 
     // Check merchant balance before processing
-    try {
-      const currentBalance = await mockGetMerchantLoyalBalance(walletAddress)
-      if (currentBalance < calculatedLoyalPoints) {
-        setErrorMessage(`Insufficient LOYAL balance. You have ${currentBalance} LOYAL, but need ${calculatedLoyalPoints} LOYAL.`)
-        setRewardStatus("error")
-        toast({
-          title: "Insufficient Balance",
-          description: `You need ${calculatedLoyalPoints} LOYAL but only have ${currentBalance} LOYAL.`,
-          variant: "destructive",
-        })
-        return
-      }
-    } catch (error) {
-      console.error("Failed to check merchant balance:", error)
-      setErrorMessage("Failed to check your LOYAL balance. Please try again.")
+    if (pltBalance < calculatedLoyalPoints) {
+      setErrorMessage(`Insufficient PLT balance. You have ${pltBalance} PLT, but need ${calculatedLoyalPoints} PLT.`)
       setRewardStatus("error")
+      toast({
+        title: "Insufficient Balance",
+        description: `You need ${calculatedLoyalPoints} PLT but only have ${pltBalance} PLT.`,
+        variant: "destructive",
+      })
       return
     }
 
@@ -143,34 +165,51 @@ export default function RewardCustomerPage() {
     setErrorMessage(null)
     setLoadingMessage("Processing reward transaction on blockchain...")
     setTransactionHash(null)
+    setApprovalStep("none")
 
     try {
+      // Get wallet signer for blockchain transaction
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error("No wallet detected. Please install MetaMask or another wallet.")
+      }
+      
+      // Request account access
+      await window.ethereum.request({ method: 'eth_requestAccounts' })
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const signer = provider.getSigner()
+
       // Process reward directly on blockchain
-      await mockRewardUser(walletAddress, scannedAddress, calculatedLoyalPoints)
-
-      // Get updated balances from blockchain
-      const newMerchantBalance = await mockGetMerchantLoyalBalance(walletAddress)
-      const currentTotalRewarded = useWalletStore.getState().totalLoyalRewarded || 0
+      setLoadingMessage("Checking PLT token approval...")
       
-      // Update store with blockchain data
-      setMerchantLoyalBalance(newMerchantBalance)
-      setTotalLoyalRewarded(currentTotalRewarded + calculatedLoyalPoints)
+      const rewardResult = await sendRewardToUser(scannedAddress, calculatedLoyalPoints, signer)
 
-      // Generate mock transaction hash for demonstration
-      const mockTxHash = `0xreward${Date.now().toString(16)}`
-      setTransactionHash(mockTxHash)
+      if (rewardResult.status === 'success') {
+        // Refresh PLT balance after successful transaction
+        await loadPltBalance()
+        const currentTotalRewarded = useWalletStore.getState().totalLoyalRewarded || 0
+        
+        // Update store with blockchain data
+        setMerchantLoyalBalance(pltBalance)
+        setTotalLoyalRewarded(currentTotalRewarded + calculatedLoyalPoints)
 
-      setRewardStatus("success")
-      setLoadingMessage("")
-      toast({
-        title: "Reward Issued Successfully!",
-        description: `${calculatedLoyalPoints} LOYAL points sent to ${scannedAddress.slice(0, 6)}...${scannedAddress.slice(-4)}. Transaction: ${mockTxHash.slice(0, 10)}...`,
-      })
-      
-      // Reset form after a short delay to show success
-      setTimeout(() => {
-        handleReset()
-      }, 2000)
+        setTransactionHash(rewardResult.transactionHash || null)
+
+        setRewardStatus("success")
+        setLoadingMessage("")
+        toast({
+          title: "Reward Issued Successfully!",
+          description: `${calculatedLoyalPoints} PLT points sent to ${scannedAddress.slice(0, 6)}...${scannedAddress.slice(-4)}. Transaction: ${rewardResult.transactionHash?.slice(0, 10)}...`,
+        })
+        
+        // Reset form after a short delay to show success
+        setTimeout(() => {
+          handleReset()
+        }, 2000)
+      } else {
+        const errorMessage = rewardResult.error || 'Reward failed'
+        
+        throw new Error(errorMessage)
+      }
     } catch (error: any) {
       console.error("Failed to reward customer:", error)
       setErrorMessage(error.message || "Could not issue reward. Please try again.")
@@ -192,6 +231,7 @@ export default function RewardCustomerPage() {
     setErrorMessage(null)
     setShowScanner(false)
     setTransactionHash(null)
+    setApprovalStep("none")
   }
 
   const handleScannerClose = () => {
@@ -355,10 +395,10 @@ export default function RewardCustomerPage() {
               </Button>
             </div>
             <CardTitle className="flex items-center gap-2 text-2xl">
-              <Sparkles className="h-6 w-6" /> Issue LOYAL Points
+              <Sparkles className="h-6 w-6" /> Issue PLT Points
             </CardTitle>
             <CardDescription>
-              Issue LOYAL points to the scanned customer.
+              Issue PLT points to the scanned customer.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -403,7 +443,7 @@ export default function RewardCustomerPage() {
 
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="font-semibold mb-2">Calculated Points:</h4>
-                  <div className="text-2xl font-bold text-primary">{calculatedLoyalPoints} LOYAL</div>
+                  <div className="text-2xl font-bold text-primary">{calculatedLoyalPoints} PLT</div>
                   <p className="text-sm text-muted-foreground mt-1">
                     Rate: 1 point per {loyaltySettings?.pointsPerRupiah.toLocaleString() || '10,000'} IDR
                   </p>
@@ -411,19 +451,28 @@ export default function RewardCustomerPage() {
 
                 <div className="bg-yellow-50 p-4 rounded-lg">
                   <h4 className="font-semibold text-yellow-800 mb-2">Your Balance</h4>
-                  <div className="text-lg font-bold text-yellow-700">{merchantLoyalBalance || 0} LOYAL</div>
-                  <p className="text-sm text-yellow-600 mt-1">
-                    {calculatedLoyalPoints > (merchantLoyalBalance || 0) 
-                      ? "⚠️ Insufficient balance for this reward" 
-                      : "✅ Sufficient balance available"}
-                  </p>
+                  {loadingPltBalance ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Loading balance...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-lg font-bold text-yellow-700">{pltBalance} PLT</div>
+                      <p className="text-sm text-yellow-600 mt-1">
+                        {calculatedLoyalPoints > pltBalance 
+                          ? "⚠️ Insufficient balance for this reward" 
+                          : "✅ Sufficient balance available"}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
               <Button
                 onClick={handleConfirmReward}
                 className="w-full h-12"
-                disabled={rewardStatus === "confirming" || calculatedLoyalPoints <= 0 || calculatedLoyalPoints > (merchantLoyalBalance || 0)}
+                disabled={rewardStatus === "confirming" || calculatedLoyalPoints <= 0 || calculatedLoyalPoints > pltBalance || loadingPltBalance}
               >
                 {rewardStatus === "confirming" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {rewardStatus === "confirming" ? loadingMessage : "Confirm & Issue"}
@@ -455,7 +504,7 @@ export default function RewardCustomerPage() {
             <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
             <h3 className="text-xl font-semibold mb-2">Reward Issued Successfully!</h3>
             <p className="text-muted-foreground text-center mb-4">
-              {calculatedLoyalPoints} LOYAL points have been sent to the customer.
+              {calculatedLoyalPoints} PLT points have been sent to the customer.
             </p>
             {transactionHash && (
               <div className="bg-green-50 p-3 rounded-lg w-full">

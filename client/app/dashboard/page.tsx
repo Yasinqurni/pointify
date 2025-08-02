@@ -42,9 +42,9 @@ export default function DashboardPage() {
 
   // Mock data for today's activity log
   const [todayActivity, setTodayActivity] = useState([
-    { id: 1, type: "Reward", details: "10 LOYAL to Alice", time: "10:30 AM" },
+    { id: 1, type: "Reward", details: "10 PLT to Alice", time: "10:30 AM" },
     { id: 2, type: "Redemption", details: "Free Coffee by Bob", time: "11:15 AM" },
-    { id: 3, type: "Reward", details: "25 LOYAL to Charlie", time: "01:00 PM" },
+    { id: 3, type: "Reward", details: "25 PLT to Charlie", time: "01:00 PM" },
   ])
   const [showSwapModal, setShowSwapModal] = useState(false)
   const [swapAmount, setSwapAmount] = useState("")

@@ -295,7 +295,7 @@ export default function UserDashboardPage() {
       setRedemptionStep('redeeming')
       toast({
         title: "Processing Redemption",
-        description: "Sending transaction to blockchain...",
+        description: "Sending transaction to blockchain. This may take a few moments...",
       })
       
       const redemptionResult = await redeemToMerchant(
@@ -310,6 +310,10 @@ export default function UserDashboardPage() {
         
         // After blockchain success, create the redemption record in backend
         setRedemptionStep('creating-record')
+        toast({
+          title: "Redemption Successful!",
+          description: "Creating redemption record in backend...",
+        })
         
         try {
           const redemptionRecord = await completeRedemption(
