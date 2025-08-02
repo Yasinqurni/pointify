@@ -19,7 +19,15 @@ export declare class AuthController {
         };
         userType: string;
     }>;
-    registerUser(registerDto: RegisterDto): Promise<any>;
+    registerUser(registerDto: RegisterDto): Promise<{
+        accessToken: string;
+        refreshToken: string;
+        user: {
+            id: string;
+            walletAddress: string;
+            userType: string;
+        };
+    }>;
     registerMerchant(merchantRegisterDto: MerchantRegisterDto): Promise<{
         accessToken: string;
         refreshToken: string;
