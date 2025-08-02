@@ -9,30 +9,38 @@ export declare class AuthController {
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;
-    registerUser(registerDto: RegisterDto): Promise<any>;
+    registerUser(registerDto: RegisterDto): Promise<{
+        accessToken: string;
+        refreshToken: string;
+        user: {
+            id: string;
+            walletAddress: string;
+            userType: string;
+        };
+    }>;
     registerMerchant(merchantRegisterDto: MerchantRegisterDto): Promise<{
         accessToken: string;
         refreshToken: string;
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;
@@ -43,13 +51,13 @@ export declare class AuthController {
     }): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
         status: import("@prisma/client").$Enums.MerchantStatus;
         transactionHash: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     registerMerchantWithToken(merchantData: any, req: any): Promise<{
         accessToken: string;
@@ -57,13 +65,13 @@ export declare class AuthController {
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;
@@ -72,43 +80,43 @@ export declare class AuthController {
         merchant: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         } | null;
     }>;
     getMerchantProfile(req: any): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
         status: import("@prisma/client").$Enums.MerchantStatus;
         transactionHash: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getPublicMerchantInfo(walletAddress: string): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
-        createdAt: Date;
     }>;
     checkUser(checkUserDto: CheckUserDto): Promise<{
         exists: boolean;
         user: {
             id: string;
             walletAddress: string;
-            createdAt: Date;
-            updatedAt: Date;
             email: string | null;
             username: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         } | null;
     }>;
     refreshToken(refreshDto: RefreshTokenDto): Promise<{
@@ -117,13 +125,13 @@ export declare class AuthController {
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;

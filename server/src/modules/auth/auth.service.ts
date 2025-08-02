@@ -266,4 +266,49 @@ export class AuthService {
 
     return user;
   }
+
+  async registerUser(registerDto: RegisterDto) {
+    const { walletAddress, signature, message } = registerDto;
+
+    // Validate wallet signature
+    const isValidSignature = await this.validateWalletSignature(
+      walletAddress,
+      message,
+      signature,
+    );
+    if (!isValidSignature) {
+      throw new UnauthorizedException('Invalid wallet signature');
+    }
+
+    // Check if user already exists
+    let user = await this.prisma.user.findUnique({
+      where: { walletAddress },
+    });
+
+    if (!user) {
+      // Create new user
+      user = await this.prisma.user.create({
+        data: { walletAddress },
+      });
+    }
+
+    const payload = {
+      sub: user.id,
+      walletAddress,
+      userType: 'user',
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        walletAddress: user.walletAddress,
+        userType: 'user',
+      },
+    };
+  }
 }
