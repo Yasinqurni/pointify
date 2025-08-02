@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useWalletStore } from "@/lib/store"
 import { useToast } from "@/components/ui/use-toast"
-import { Wallet, AlertCircle, Loader2 } from "lucide-react"
+import { Wallet, AlertCircle, Loader2, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { xellar } from "@/lib/xellar"
 
@@ -165,37 +165,66 @@ export function XellarConnect({ userType, children }: XellarConnectProps) {
 
   return (
     <div className="space-y-3">
-
-      
       {walletError && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700">
-          <AlertCircle className="h-4 w-4" />
-          <span className="text-sm">{walletError}</span>
-
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700"
+        >
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <span className="text-sm font-medium">{walletError}</span>
+        </motion.div>
       )}
       
       <motion.button
         onClick={handleConnect}
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ 
+          scale: 1.02,
+          boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)"
+        }}
         whileTap={{ scale: 0.98 }}
-        className="w-full flex items-center justify-center gap-3 py-3 px-6 rounded-lg text-lg font-semibold
-                  bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all duration-200"
+        className="w-full relative overflow-hidden group"
         disabled={connecting}
       >
-        {connecting ? (
-          <span className="flex items-center gap-2">
-            <Loader2 className="animate-spin" />
-            Connecting...
-          </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            <Wallet /> {children}
-          </span>
-        )}
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300"></div>
+        
+        {/* Animated sparkles background */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-2 left-4 w-1 h-1 bg-white rounded-full animate-pulse"></div>
+          <div className="absolute top-4 right-6 w-1 h-1 bg-white rounded-full animate-pulse delay-100"></div>
+          <div className="absolute bottom-3 left-8 w-1 h-1 bg-white rounded-full animate-pulse delay-200"></div>
+        </div>
+        
+        {/* Button content */}
+        <div className="relative flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white font-semibold text-lg transition-all duration-300">
+          {connecting ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-3"
+            >
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Connecting...</span>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-3"
+            >
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                <Sparkles className="h-4 w-4 text-yellow-300" />
+              </div>
+              <span>{children}</span>
+            </motion.div>
+          )}
+        </div>
+        
+        {/* Hover effect overlay */}
+        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
       </motion.button>
-      
-
     </div>
   )
 } 
