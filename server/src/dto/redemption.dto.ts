@@ -22,6 +22,23 @@ export class ConfirmClaimDto {
   redemptionId: string;
 }
 
+export class CompleteRedemptionDto {
+  @ApiProperty({ description: 'Reward ID that was redeemed' })
+  @IsString()
+  @IsNotEmpty()
+  rewardId: string;
+
+  @ApiProperty({ description: 'Wallet address of the user' })
+  @IsString()
+  @IsNotEmpty()
+  walletAddress: string;
+
+  @ApiProperty({ description: 'Blockchain transaction hash' })
+  @IsString()
+  @IsNotEmpty()
+  transactionHash: string;
+}
+
 export class RedemptionResponseDto {
   @ApiProperty()
   id: string;

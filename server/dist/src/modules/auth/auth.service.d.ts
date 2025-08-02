@@ -12,13 +12,13 @@ export declare class AuthService {
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;
@@ -28,13 +28,13 @@ export declare class AuthService {
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;
@@ -44,13 +44,13 @@ export declare class AuthService {
         user: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         userType: string;
     }>;
@@ -59,74 +59,74 @@ export declare class AuthService {
         merchant: {
             id: string;
             walletAddress: string;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             description: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.MerchantStatus;
             transactionHash: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         } | null;
     }>;
     getMerchantByWallet(walletAddress: string): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
         status: import("@prisma/client").$Enums.MerchantStatus;
         transactionHash: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     updateMerchantStatus(walletAddress: string, status: 'APPROVED' | 'REJECTED', transactionHash?: string): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
         status: import("@prisma/client").$Enums.MerchantStatus;
         transactionHash: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getMerchantProfile(user: any): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
         status: import("@prisma/client").$Enums.MerchantStatus;
         transactionHash: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getPublicMerchantInfo(walletAddress: string): Promise<{
         id: string;
         walletAddress: string;
+        createdAt: Date;
         name: string;
         description: string | null;
         logoUrl: string | null;
-        createdAt: Date;
     }>;
     checkUser(walletAddress: string): Promise<{
         exists: boolean;
         user: {
             id: string;
             walletAddress: string;
-            createdAt: Date;
-            updatedAt: Date;
             email: string | null;
             username: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         } | null;
     }>;
     getUserByWallet(walletAddress: string): Promise<{
         id: string;
         walletAddress: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string | null;
         username: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     registerUser(registerDto: RegisterDto): Promise<{
         accessToken: string;

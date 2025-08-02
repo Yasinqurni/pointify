@@ -5,7 +5,7 @@ import { getIDRXBalance } from './idrx-contract'
 export const MERCHANT_REGISTRY_ADDRESS = '0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75'
 
 // Lisk Sepolia RPC URL
-export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia-api.lisk.com'
+export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia.lisk.com'
 
 // Full ABI for merchant registry contract
 export const MERCHANT_REGISTRY_ABI = [

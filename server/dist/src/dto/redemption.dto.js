@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RedemptionResponseDto = exports.ConfirmClaimDto = exports.VerifyClaimCodeDto = exports.RedeemRewardDto = void 0;
+exports.RedemptionResponseDto = exports.CompleteRedemptionDto = exports.ConfirmClaimDto = exports.VerifyClaimCodeDto = exports.RedeemRewardDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class RedeemRewardDto {
@@ -42,6 +42,30 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], ConfirmClaimDto.prototype, "redemptionId", void 0);
+class CompleteRedemptionDto {
+    rewardId;
+    walletAddress;
+    transactionHash;
+}
+exports.CompleteRedemptionDto = CompleteRedemptionDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Reward ID that was redeemed' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CompleteRedemptionDto.prototype, "rewardId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Wallet address of the user' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CompleteRedemptionDto.prototype, "walletAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Blockchain transaction hash' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CompleteRedemptionDto.prototype, "transactionHash", void 0);
 class RedemptionResponseDto {
     id;
     status;

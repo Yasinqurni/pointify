@@ -1,11 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
-
-/// @seed="tsx prisma/seed.ts"
 
 datasource db {
   provider = "postgresql"
@@ -13,124 +8,101 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  walletAddress String @unique
-  email     String?  @unique
-  username  String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
+  id                String             @id @default(cuid())
+  walletAddress     String             @unique
+  email             String?            @unique
+  username          String?            @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   pointTransactions PointTransaction[]
   redemptions       Redemption[]
-  
+
   @@map("users")
 }
 
 model Merchant {
-  id        String   @id @default(cuid())
-  walletAddress String @unique
-  name      String
-  description String?
-  logoUrl   String?
-  status    MerchantStatus @default(PENDING)
-  transactionHash String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  rewards        Reward[]
+  id                String             @id @default(cuid())
+  walletAddress     String             @unique
+  name              String
+  description       String?
+  logoUrl           String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  status            MerchantStatus     @default(PENDING)
+  transactionHash   String?
+  loyaltySettings   LoyaltySettings?
   pointTransactions PointTransaction[]
-  redemptions   Redemption[]
-  loyaltySettings LoyaltySettings?
-  
+  redemptions       Redemption[]
+  rewards           Reward[]
+
   @@map("merchants")
 }
 
 model LoyaltySettings {
-  id        String   @id @default(cuid())
-  
-  // Points calculation rules
-  pointsPerDollar     Float   @default(1.0)
-  pointsPerRupiah     Int     @default(10000)
-  autoCalculate       Boolean @default(true)
-  minimumPurchase     Float   @default(5.0)
-  
-  // Reward settings
-  defaultRewardPoints Int     @default(10)
-  expirationDays      Int     @default(365)
-  allowNegativeBalance Boolean @default(false)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  pointsPerDollar      Float    @default(1.0)
+  pointsPerRupiah      Int      @default(10000)
+  autoCalculate        Boolean  @default(true)
+  minimumPurchase      Float    @default(5.0)
+  defaultRewardPoints  Int      @default(10)
+  expirationDays       Int      @default(365)
+  allowNegativeBalance Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  merchantId           String   @unique
+  merchant             Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
-  // Relations
-  merchantId String @unique
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  
   @@map("loyalty_settings")
 }
 
 model Reward {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  imageUrl    String?
+  id             String       @id @default(cuid())
+  title          String
+  description    String
+  imageUrl       String?
   requiredPoints Int
-  expiryDate  DateTime
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  expiryDate     DateTime
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  merchantId     String
+  redemptions    Redemption[]
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
-  // Relations
-  merchantId  String
-  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  redemptions Redemption[]
-  
   @@map("rewards")
 }
 
 model PointTransaction {
-  id        String   @id @default(cuid())
-  amount    Int      // Positive for received, negative for spent
-  type      TransactionType
-  createdAt DateTime @default(now())
-
-  // Relations
-  userId    String
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  merchantId String?
-  merchant  Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
-  
-  // Optional reference to redemption
+  id           String          @id @default(cuid())
+  amount       Int
+  type         TransactionType
+  createdAt    DateTime        @default(now())
+  userId       String
+  merchantId   String?
   redemptionId String?
-  redemption   Redemption? @relation(fields: [redemptionId], references: [id], onDelete: SetNull)
-  
+  merchant     Merchant?       @relation(fields: [merchantId], references: [id])
+  redemption   Redemption?     @relation(fields: [redemptionId], references: [id])
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("point_transactions")
 }
 
 model Redemption {
-  id        String   @id @default(cuid())
-  status    RedemptionStatus @default(PENDING)
-  claimCode String   @unique
-  redeemedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  userId    String
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  rewardId  String
-  reward    Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
-  
-  merchantId String
-  merchant  Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  
-  // Point transaction for this redemption
+  id                String             @id @default(cuid())
+  status            RedemptionStatus   @default(PENDING)
+  claimCode         String             @unique
+  redeemedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  userId            String
+  rewardId          String
+  merchantId        String
+  transactionHash   String?
   pointTransactions PointTransaction[]
-  
+  merchant          Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  reward            Reward             @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("redemptions")
 }
 

@@ -198,12 +198,6 @@ export default function DashboardPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-muted-foreground">Loading dashboard...</p>
           <div className="flex gap-2">
-            <Button onClick={handleForceClearTokens} variant="outline" size="sm">
-              Force Clear Tokens (Debug)
-            </Button>
-            <Button onClick={handleDebugToken} variant="outline" size="sm">
-              Debug Token
-            </Button>
           </div>
         </div>
       </div>

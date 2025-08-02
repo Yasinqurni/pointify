@@ -6,7 +6,7 @@ export const PLT_TOKEN_ADDRESS = '0x04f0c7778AD75B535Ca478Cc01eA8574C7Ca3A7E'
 export const IDRX_TOKEN_ADDRESS = '0x7222435AC83D6c44052eB635112842Da458AEfD8' // IDRX token address
 
 // Lisk Sepolia RPC URL
-export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia-api.lisk.com'
+export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia.lisk.com'
 
 // Cache for PLT balance
 const pltBalanceCache = new Map<string, { balance: number; timestamp: number }>()
@@ -219,7 +219,36 @@ export async function getPltBalance(address: string): Promise<number> {
 }
 
 /**
- * Check if token approval is needed
+ * Check if PLT token approval is needed for redemption
+ */
+export async function checkPltApprovalNeeded(
+  userAddress: string, 
+  amount: number
+): Promise<boolean> {
+  try {
+    console.log('Checking PLT approval for:', userAddress)
+    console.log('PLT Token Address:', PLT_TOKEN_ADDRESS)
+    console.log('Swap Contract Address:', PLT_SWAP_CONTRACT_ADDRESS)
+    
+    const provider = new ethers.providers.JsonRpcProvider(LISK_SEPOLIA_RPC)
+    const pltTokenContract = new ethers.Contract(PLT_TOKEN_ADDRESS, ERC20_ABI, provider)
+    
+    const allowance = await pltTokenContract.allowance(userAddress, PLT_SWAP_CONTRACT_ADDRESS)
+    const requiredAmount = ethers.utils.parseEther(amount.toString())
+    
+    console.log('Current PLT allowance:', allowance.toString())
+    console.log('Required amount:', requiredAmount.toString())
+    
+    return allowance.lt(requiredAmount)
+  } catch (error) {
+    console.error('Failed to check PLT approval:', error)
+    // If the contract doesn't support allowance, assume approval is needed
+    return true
+  }
+}
+
+/**
+ * Check if IDRX token approval is needed for swapping
  */
 export async function checkApprovalNeeded(
   userAddress: string, 
@@ -258,6 +287,7 @@ export async function safeApprove(
   signer: ethers.Signer
 ): Promise<string> {
   try {
+    console.log('=== SAFE APPROVE DEBUG ===')
     console.log('Performing safe approve...')
     console.log('Token address:', token.address)
     console.log('Spender address:', spender)
@@ -270,7 +300,16 @@ export async function safeApprove(
     const currentAllowance = await token.allowance(userAddress, spender)
     console.log('Current allowance:', currentAllowance.toString())
     
-    // Approve the amount directly (ERC20 will handle the allowance)
+    // Check if we need to reset allowance first (some tokens require this)
+    if (currentAllowance.gt(0) && currentAllowance.lt(amount)) {
+      console.log('Current allowance is less than required, resetting to 0 first...')
+      const resetTx = await token.approve(spender, 0)
+      console.log('Reset transaction sent:', resetTx.hash)
+      await resetTx.wait()
+      console.log('Reset transaction confirmed')
+    }
+    
+    // Approve the amount
     console.log('Approving amount:', amount.toString())
     console.log('About to call token.approve...')
     const approveTx = await token.approve(spender, amount)
@@ -281,8 +320,14 @@ export async function safeApprove(
     
     console.log('Safe approve completed:', receipt.transactionHash)
     return receipt.transactionHash
-  } catch (error) {
+  } catch (error: any) {
+    console.error('=== SAFE APPROVE ERROR ===')
     console.error('Safe approve failed:', error)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      data: error.data
+    })
     throw error
   }
 }
