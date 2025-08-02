@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  walletAddress     String             @unique
+  email             String?            @unique
+  username          String?            @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  pointTransactions PointTransaction[]
+  redemptions       Redemption[]
+
+  @@map("users")
+}
+
+model Merchant {
+  id                String             @id @default(cuid())
+  walletAddress     String             @unique
+  name              String
+  description       String?
+  logoUrl           String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  status            MerchantStatus     @default(PENDING)
+  transactionHash   String?
+  loyaltySettings   LoyaltySettings?
+  pointTransactions PointTransaction[]
+  redemptions       Redemption[]
+  rewards           Reward[]
+
+  @@map("merchants")
+}
+
+model LoyaltySettings {
+  id                   String   @id @default(cuid())
+  pointsPerDollar      Float    @default(1.0)
+  pointsPerRupiah      Int      @default(10000)
+  autoCalculate        Boolean  @default(true)
+  minimumPurchase      Float    @default(5.0)
+  defaultRewardPoints  Int      @default(10)
+  expirationDays       Int      @default(365)
+  allowNegativeBalance Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  merchantId           String   @unique
+  merchant             Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_settings")
+}
+
+model Reward {
+  id             String       @id @default(cuid())
+  title          String
+  description    String
+  imageUrl       String?
+  requiredPoints Int
+  expiryDate     DateTime
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  merchantId     String
+  redemptions    Redemption[]
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("rewards")
+}
+
+model PointTransaction {
+  id           String          @id @default(cuid())
+  amount       Int
+  type         TransactionType
+  createdAt    DateTime        @default(now())
+  userId       String
+  merchantId   String?
+  redemptionId String?
+  merchant     Merchant?       @relation(fields: [merchantId], references: [id])
+  redemption   Redemption?     @relation(fields: [redemptionId], references: [id])
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("point_transactions")
+}
+
+model Redemption {
+  id                String             @id @default(cuid())
+  status            RedemptionStatus   @default(PENDING)
+  claimCode         String             @unique
+  redeemedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  userId            String
+  rewardId          String
+  merchantId        String
+  transactionHash   String?
+  pointTransactions PointTransaction[]
+  merchant          Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  reward            Reward             @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("redemptions")
+}
+
+enum TransactionType {
+  RECEIVED
+  SPENT
+  REFUNDED
+}
+
+enum RedemptionStatus {
+  PENDING
+  CLAIMED
+  EXPIRED
+  CANCELLED
+}
+
+enum MerchantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

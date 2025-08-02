@@ -1,0 +1,271 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 60% 97%; /* Very light pastel blue for overall background */
+    --foreground: 220 10% 20%; /* Darker text */
+
+    --card: 220 60% 95%; /* Slightly darker pastel blue for cards, to blend */
+    --card-foreground: 220 10% 20%;
+
+    --popover: 220 60% 95%;
+    --popover-foreground: 220 10% 20%;
+
+    --primary: 240 70% 60%; /* A vibrant violet/blue for primary actions */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
+
+    --secondary: 240 30% 85%; /* Lighter pastel violet for secondary elements */
+    --secondary-foreground: 220 10% 20%;
+
+    --muted: 220 40% 92%; /* Even lighter, tinted pastel for muted backgrounds */
+    --muted-foreground: 220 10% 40%;
+
+    --accent: 240 70% 70%; /* A slightly lighter primary for accents */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 20% 88%; /* Soft border color, slightly darker than muted */
+    --input: 220 20% 88%;
+    --ring: 240 70% 60%; /* Primary color for focus rings */
+
+    --radius: 0.75rem; /* Slightly larger radius for softer look */
+
+    /* Sidebar specific variables - blend with main theme */
+    --sidebar-background: 220 60% 95%; /* Same as card, or slightly different */
+    --sidebar-foreground: 220 10% 20%;
+    --sidebar-primary: 240 70% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 70% 70%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 20% 88%;
+    --sidebar-ring: 240 70% 60%;
+
+    /* Glassmorphism effect variables */
+    --glass-bg: 0 0% 100%; /* White for light mode glass */
+    --glass-border: 0 0% 90%; /* Light border for light mode glass */
+  }
+
+  .dark {
+    --background: 240 10% 10%; /* Dark background */
+    --foreground: 220 100% 90%; /* Light text */
+
+    --card: 240 10% 15%; /* Slightly lighter than background for cards */
+    --card-foreground: 220 100% 90%;
+
+    --popover: 240 10% 15%;
+    --popover-foreground: 220 100% 90%;
+
+    --primary: 240 70% 60%; /* Same vibrant primary */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 10% 25%; /* Darker secondary */
+    --secondary-foreground: 220 100% 90%;
+
+    --muted: 240 10% 20%;
+    --muted-foreground: 220 100% 70%;
+
+    --accent: 240 70% 70%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 240 10% 20%;
+    --input: 240 10% 20%;
+    --ring: 240 70% 60%;
+
+    /* Sidebar specific variables */
+    --sidebar-background: 240 10% 15%;
+    --sidebar-foreground: 220 100% 90%;
+    --sidebar-primary: 240 70% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 70% 70%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 240 10% 20%;
+    --sidebar-ring: 240 70% 60%;
+
+    /* Glassmorphism effect variables */
+    --glass-bg: 240 10% 20%; /* Darker for dark mode glass */
+    --glass-border: 240 10% 30%; /* Dark border for dark mode glass */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  /* Mobile scrolling fixes */
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+  
+  body {
+    height: 100%;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  }
+  
+  /* Fix for iOS Safari viewport issues */
+  @supports (-webkit-touch-callout: none) {
+    .min-h-screen {
+      min-height: -webkit-fill-available;
+    }
+  }
+  
+  /* Ensure proper scrolling on mobile */
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Glassmorphism utility class */
+.glass-card {
+  background-color: hsl(var(--glass-bg) / 0.2); /* Semi-transparent background */
+  backdrop-filter: blur(10px); /* Blur effect */
+  border: 1px solid hsl(var(--glass-border) / 0.3); /* Subtle border */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); /* Soft shadow */
+}
+
+/* Enhanced glassmorphism with better blur and shadows */
+.glass-card-enhanced {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(31, 38, 135, 0.37),
+    0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Gradient text utilities */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-purple {
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated gradients */
+.animated-gradient {
+  background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse glow effect */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Shimmer effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Enhanced hover effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1);
+}
+
+/* Text selection */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
+
+::-moz-selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
