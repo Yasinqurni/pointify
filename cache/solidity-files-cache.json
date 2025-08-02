@@ -1,9 +1,9 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/contracts/ERC20Mock.sol": {
-      "lastModificationDate": 1752596553443,
-      "contentHash": "64ce44112702eaaa89cf4d002b63a429",
+    "/Users/ultravoucher/projekan/web3/pointify/contracts/ERC20Mock.sol": {
+      "lastModificationDate": 1754069602586,
+      "contentHash": "f37d834fe64894ca930f7f531071e7e9",
       "sourceName": "contracts/ERC20Mock.sol",
       "solcConfig": {
         "version": "0.8.23",
@@ -30,16 +30,17 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol"
+        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.0"
       ],
       "artifacts": [
-        "ERC20Mock"
+        "IDRXMock"
       ]
     },
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+    "/Users/ultravoucher/projekan/web3/pointify/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
       "lastModificationDate": 1752823493828,
       "contentHash": "59dfce11284f2636db261df9b6a18f81",
       "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
@@ -80,7 +81,7 @@
         "ERC20"
       ]
     },
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+    "/Users/ultravoucher/projekan/web3/pointify/node_modules/@openzeppelin/contracts/utils/Context.sol": {
       "lastModificationDate": 1752823493789,
       "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
       "sourceName": "@openzeppelin/contracts/utils/Context.sol",
@@ -116,81 +117,7 @@
         "Context"
       ]
     },
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
-      "lastModificationDate": 1752823493806,
-      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
-      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
-      "solcConfig": {
-        "version": "0.8.23",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.8.4"
-      ],
-      "artifacts": [
-        "IERC1155Errors",
-        "IERC20Errors",
-        "IERC721Errors"
-      ]
-    },
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
-      "lastModificationDate": 1752823493853,
-      "contentHash": "9261adf6457863de3e9892f51317ec89",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-      "solcConfig": {
-        "version": "0.8.23",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC20"
-      ]
-    },
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+    "/Users/ultravoucher/projekan/web3/pointify/node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
       "lastModificationDate": 1752823493853,
       "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
       "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
@@ -228,10 +155,10 @@
         "IERC20Metadata"
       ]
     },
-    "/Users/ultravoucher/projekan/web3/loyalty-coin-dapp/contracts/LoyaltyPoint.sol": {
-      "lastModificationDate": 1752596398671,
-      "contentHash": "48d4729cff72d066af8df6924ecde9cd",
-      "sourceName": "contracts/LoyaltyPoint.sol",
+    "/Users/ultravoucher/projekan/web3/pointify/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+      "lastModificationDate": 1752823493853,
+      "contentHash": "9261adf6457863de3e9892f51317ec89",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
         "version": "0.8.23",
         "settings": {
@@ -258,11 +185,126 @@
       },
       "imports": [],
       "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": [
+        "IERC20"
+      ]
+    },
+    "/Users/ultravoucher/projekan/web3/pointify/node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
+      "lastModificationDate": 1752823493806,
+      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
+      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.4"
+      ],
+      "artifacts": [
+        "IERC1155Errors",
+        "IERC20Errors",
+        "IERC721Errors"
+      ]
+    },
+    "/Users/ultravoucher/projekan/web3/pointify/contracts/LoyaltyPoint.sol": {
+      "lastModificationDate": 1754070789052,
+      "contentHash": "9d77091710761828ffae36c85c9d9aa7",
+      "sourceName": "contracts/LoyaltyPoint.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./ERC20Mock.sol"
+      ],
+      "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "IERC20",
-        "LoyaltyPoint"
+        "PointifyToken",
+        "Treasury",
+        "TreasuryManager"
+      ]
+    },
+    "/Users/ultravoucher/projekan/web3/pointify/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1752823493863,
+      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
+      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Ownable"
       ]
     }
   }
