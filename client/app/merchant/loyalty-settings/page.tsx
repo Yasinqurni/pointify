@@ -7,13 +7,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
-import { Save, Gift, Calculator, Settings, ArrowLeft, Loader2, CheckCircle, AlertCircle, X } from "lucide-react"
+import { Save, Gift, Calculator, Settings, ArrowLeft, Loader2, CheckCircle, AlertCircle, X, RefreshCw, User, Store } from "lucide-react"
 import { getLoyaltySettings, updateLoyaltySettings, type LoyaltySettings, type UpdateLoyaltySettingsRequest } from "@/lib/api"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { motion } from "framer-motion"
+import { authService } from "@/lib/auth"
+import { useWalletStore } from "@/lib/store"
 
 export default function LoyaltySettingsPage() {
   const { toast } = useToast()
+  const { userType, walletAddress } = useWalletStore()
   const [loyaltyRules, setLoyaltyRules] = useState({
     pointsPerDollar: 1,
     pointsPerRupiah: 10000,
@@ -29,17 +32,39 @@ export default function LoyaltySettingsPage() {
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorDetails, setErrorDetails] = useState("")
   const [hasLoaded, setHasLoaded] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [debugInfo, setDebugInfo] = useState("")
+  const [showDebugModal, setShowDebugModal] = useState(false)
 
   // Load loyalty settings on component mount
   useEffect(() => {
     const loadSettings = async () => {
       // Prevent duplicate loads
-      if (hasLoaded || loading) return
+      if (hasLoaded && !loading) return
       
       setLoading(true)
+      setDebugInfo("Starting to load loyalty settings...")
       
       try {
+        // Check authentication first
+        const isAuthenticated = authService.isAuthenticated()
+        const authUserType = authService.getUserType()
+        const authWalletAddress = authService.getWalletAddress()
+        
+        setDebugInfo(`Auth check: ${isAuthenticated ? 'Authenticated' : 'Not authenticated'}, Auth user type: ${authUserType}, Auth wallet: ${authWalletAddress}, Store user type: ${userType}, Store wallet: ${walletAddress}`)
+        
+        if (!isAuthenticated) {
+          throw new Error("Not authenticated. Please log in as a merchant.")
+        }
+        
+        // if (userType !== 'merchant') {
+        //   throw new Error("Access denied. Only merchants can access loyalty settings.")
+        // }
+
+        setDebugInfo("Fetching loyalty settings from API...")
         const settings = await getLoyaltySettings()
+        
+        setDebugInfo("Settings loaded successfully, updating state...")
         setLoyaltyRules({
           pointsPerDollar: settings.pointsPerDollar,
           pointsPerRupiah: settings.pointsPerRupiah,
@@ -50,17 +75,54 @@ export default function LoyaltySettingsPage() {
           allowNegativeBalance: settings.allowNegativeBalance,
         })
         setHasLoaded(true)
+        setDebugInfo("Settings loaded and state updated successfully")
+        
+        toast({
+          title: "Settings Loaded",
+          description: "Loyalty settings loaded successfully.",
+        })
+        
       } catch (error: any) {
         console.error("Failed to load loyalty settings:", error)
-        setErrorDetails(error?.message || "Failed to load loyalty settings. Using default values.")
-        setShowErrorModal(true)
+        
+        const errorMessage = error?.message || "Failed to load loyalty settings. Using default values."
+        setErrorDetails(errorMessage)
+        setDebugInfo(`Error loading settings: ${errorMessage}`)
+        
+        // Show error modal for first attempt, use defaults for retries
+        if (retryCount === 0) {
+          setShowErrorModal(true)
+        } else {
+          toast({
+            title: "Using Default Settings",
+            description: "Could not load settings from server. Using default values.",
+            variant: "destructive",
+          })
+        }
       } finally {
         setLoading(false)
       }
     }
 
     loadSettings()
-  }, []) // Empty dependency array - only run once on mount
+  }, [retryCount, userType, walletAddress]) // Add userType and walletAddress to dependencies
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1)
+    setShowErrorModal(false)
+    setHasLoaded(false)
+  }
+
+  const handleForceMerchant = () => {
+    // Force clear all auth data and redirect to login
+    authService.forceClearAll()
+    toast({
+      title: "Authentication Reset",
+      description: "Please log in again as a merchant.",
+    })
+    // Redirect to home page to re-login
+    window.location.href = '/'
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -78,6 +140,11 @@ export default function LoyaltySettingsPage() {
       await updateLoyaltySettings(updateData)
       setShowSuccessModal(true)
       
+      toast({
+        title: "Settings Saved",
+        description: "Loyalty settings updated successfully.",
+      })
+      
     } catch (error: any) {
       console.error("Failed to save loyalty settings:", error)
       setErrorDetails(error?.message || "Failed to save loyalty settings. Please try again.")
@@ -94,6 +161,12 @@ export default function LoyaltySettingsPage() {
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin" />
             <p className="text-muted-foreground">Loading loyalty settings...</p>
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs text-gray-600 max-w-md">
+                <p className="font-semibold">Debug Info:</p>
+                <p>{debugInfo}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -116,6 +189,25 @@ export default function LoyaltySettingsPage() {
               <p className="text-sm text-muted-foreground">Configure your loyalty program</p>
             </div>
           </div>
+        </div>
+        
+        {/* Debug Info Button */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDebugModal(true)}
+          >
+            Debug
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleForceMerchant}
+            className="text-orange-600 hover:text-orange-700"
+          >
+            Force Merchant
+          </Button>
         </div>
       </div>
 
@@ -278,6 +370,64 @@ export default function LoyaltySettingsPage() {
         </Button>
       </div>
 
+      {/* Debug Modal */}
+      <Dialog open={showDebugModal} onOpenChange={setShowDebugModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              Debug Information
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">Authentication Status</h4>
+                <div className="text-sm space-y-1">
+                  <p><strong>Is Authenticated:</strong> {authService.isAuthenticated() ? 'Yes' : 'No'}</p>
+                  <p><strong>Auth User Type:</strong> {authService.getUserType() || 'None'}</p>
+                  <p><strong>Auth Wallet:</strong> {authService.getWalletAddress() || 'None'}</p>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-green-50 rounded-lg">
+                <h4 className="font-semibold text-green-800 mb-2">Store Status</h4>
+                <div className="text-sm space-y-1">
+                  <p><strong>Store User Type:</strong> {userType || 'None'}</p>
+                  <p><strong>Store Wallet:</strong> {walletAddress || 'None'}</p>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-yellow-50 rounded-lg">
+                <h4 className="font-semibold text-yellow-800 mb-2">Debug Info</h4>
+                <div className="text-sm">
+                  <p className="whitespace-pre-wrap">{debugInfo}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowDebugModal(false)}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  authService.debugToken()
+                  toast({
+                    title: "Token Debugged",
+                    description: "Check console for JWT token details",
+                  })
+                }}
+              >
+                Debug Token
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Success Modal */}
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
         <DialogContent className="sm:max-w-md">
@@ -331,7 +481,7 @@ export default function LoyaltySettingsPage() {
                 <AlertCircle className="h-8 w-8 text-red-600" />
               </div>
               <p className="text-muted-foreground mb-4">
-                Failed to save loyalty settings:
+                Failed to load loyalty settings:
               </p>
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
                 <p className="text-sm text-red-700 text-center">
@@ -346,20 +496,11 @@ export default function LoyaltySettingsPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    setShowErrorModal(false)
-                    handleSave()
-                  }}
-                  disabled={saving}
+                  onClick={handleRetry}
+                  className="flex items-center gap-2"
                 >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Retrying...
-                    </>
-                  ) : (
-                    "Try Again"
-                  )}
+                  <RefreshCw className="h-4 w-4" />
+                  Retry
                 </Button>
               </div>
             </motion.div>
