@@ -9,6 +9,7 @@ import {
   redeemReward,
   fetchUserPointReceptionLogs,
   type PointReception,
+  completeRedemption,
 } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -32,7 +33,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { mockGetUserLoyalBalance } from "@/lib/ethers"
-import { getPltBalance } from "@/lib/plt-swap-contract"
+import { getPltBalance, redeemToMerchant, checkApprovalNeeded, safeApprove } from "@/lib/plt-swap-contract"
+import { ethers } from "ethers"
 import { motion } from "framer-motion"
 import { QRCodeSVG } from "qrcode.react" // Import QRCode
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Import Tabs components
@@ -69,6 +71,7 @@ export default function UserDashboardPage() {
   const [isRedeeming, setIsRedeeming] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
   const [redemptionData, setRedemptionData] = useState<any>(null)
+  const [showErrorModal, setShowErrorModal] = useState(false)
 
   const [loadingLoyalBalance, setLoadingLoyalBalance] = useState(true)
   const [copied, setCopied] = useState(false) // For copy wallet address
@@ -82,6 +85,9 @@ export default function UserDashboardPage() {
   const [activeTab, setActiveTab] = useState("rewards") // State for active tab
   const [showQR, setShowQR] = useState(false) // State for QR code visibility
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null) // State for selected merchant
+  const [redemptionStep, setRedemptionStep] = useState<'idle' | 'approving' | 'redeeming' | 'creating-record'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string>("")
+  const [transactionHash, setTransactionHash] = useState<string>("")
 
   useEffect(() => {
     if (!walletAddress || userType !== "user") {
@@ -173,17 +179,35 @@ export default function UserDashboardPage() {
   }, [walletAddress, userType, router])
 
   const handleRedeemClick = (rewardId: string) => {
-    const reward = Object.values(rewards).flat().find(r => r.id === rewardId)
-    if (!reward) return
+    console.log("🔍 Redeem clicked for reward ID:", rewardId)
+    console.log("🔍 Available rewards:", rewards)
     
-    if (userLoyalBalance === null || userLoyalBalance < reward.requiredPoints) {
+    const reward = Object.values(rewards).flat().find(r => r.id === rewardId)
+    console.log("🔍 Found reward:", reward)
+    
+    if (!reward) {
+      console.error("❌ Reward not found for ID:", rewardId)
       toast({
-        title: "Insufficient Points",
-        description: `You need ${reward.requiredPoints} PLT points to redeem this reward, but you only have ${userLoyalBalance || 0}.`,
+        title: "Error",
+        description: "Reward not found. Please try again.",
         variant: "destructive",
       })
       return
     }
+    
+    console.log("🔍 Current PLT balance:", realPltBalance)
+    console.log("🔍 Required points:", reward.requiredPoints)
+    
+    if (realPltBalance < reward.requiredPoints) {
+      toast({
+        title: "Insufficient Points",
+        description: `You need ${reward.requiredPoints} PLT points to redeem this reward, but you only have ${realPltBalance}.`,
+        variant: "destructive",
+      })
+      return
+    }
+    
+    console.log("🔍 Setting selected reward and opening modal")
     setSelectedReward(reward)
     setIsRedeemModalOpen(true)
   }
@@ -192,57 +216,144 @@ export default function UserDashboardPage() {
     if (!selectedReward || !walletAddress) return
 
     setIsRedeeming(true)
+    setRedemptionStep('idle')
+    setErrorMessage("")
+    setTransactionHash("")
+    
     try {
-      const redemptionResult = await redeemReward(selectedReward.id)
+      // Get the user's wallet provider (MetaMask, etc.)
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const signer = provider.getSigner()
 
-      toast({
-        title: "Redemption Created!",
-        description: `Your claim code is ready. Show it to the merchant to complete redemption.`,
-      })
-
-      // Store redemption data for QR code
-      setRedemptionData({
-        claimCode: redemptionResult.claimCode,
-        rewardTitle: selectedReward.title,
-        merchantName: selectedReward.merchantName,
-        redeemedPoints: selectedReward.requiredPoints,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
-      })
-
-      // NOTE: Points are NOT deducted yet - this happens when merchant confirms
-      // Update history
-      const newRedemptionEntry: HistoryEntry = {
-        ...redemptionResult,
-        type: "redeemed",
+      // Get merchant address from the reward data
+      const merchantAddress = selectedReward.merchant?.walletAddress || selectedReward.merchantWalletAddress
+      if (!merchantAddress) {
+        console.error("❌ Merchant wallet address missing from reward:", selectedReward)
+        throw new Error("Merchant address not found for this reward")
       }
-      setHistory((prev) => [newRedemptionEntry, ...prev])
 
-      // Show QR code modal instead of redirecting
-      setShowQRModal(true)
-    } catch (err: any) {
-      console.error("Failed to redeem reward:", err)
-      
-      // Handle specific error cases
-      let errorTitle = "Redemption Failed"
-      let errorDescription = err.message || "Could not redeem reward. Please try again."
-      
-      if (err.message?.includes('pending redemption')) {
-        errorTitle = "Duplicate Redemption"
-        errorDescription = err.message
-      } else if (err.message?.includes('Insufficient loyalty points')) {
-        errorTitle = "Not Enough Points"
-        errorDescription = "You don't have enough PLT points for this reward."
+      // Check if PLT token approval is needed
+      const approvalNeeded = await checkApprovalNeeded(walletAddress, selectedReward.requiredPoints)
+      if (approvalNeeded) {
+        console.log("🔍 PLT approval needed, requesting approval...")
+        setRedemptionStep('approving')
+        toast({
+          title: "Approval Required",
+          description: "Please approve PLT tokens for redemption in your wallet.",
+        })
+        
+        // Get PLT token contract
+        const pltTokenAddress = "0x04f0c7778AD75B535Ca478Cc01eA8574C7Ca3A7E" // PLT token address
+        const pltTokenContract = new ethers.Contract(pltTokenAddress, [
+          "function approve(address spender, uint256 amount) returns (bool)",
+          "function allowance(address owner, address spender) view returns (uint256)"
+        ], signer)
+        
+        // Approve PLT tokens for the swap contract
+        const approveAmount = ethers.utils.parseUnits(selectedReward.requiredPoints.toString(), 18)
+        await safeApprove(pltTokenContract, "0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75", approveAmount, signer)
+        
+        toast({
+          title: "Approval Successful",
+          description: "PLT tokens approved. Proceeding with redemption...",
+        })
       }
-      
+
+      // Call the blockchain redemption function directly
+      setRedemptionStep('redeeming')
       toast({
-        title: errorTitle,
-        description: errorDescription,
-        variant: "destructive",
+        title: "Processing Redemption",
+        description: "Sending transaction to blockchain...",
       })
+      
+      const redemptionResult = await redeemToMerchant(
+        merchantAddress,
+        selectedReward.requiredPoints,
+        signer
+      )
+
+      if (redemptionResult.status === 'success') {
+        // Store transaction hash
+        setTransactionHash(redemptionResult.transactionHash!)
+        
+        // After blockchain success, create the redemption record in backend
+        setRedemptionStep('creating-record')
+        
+        try {
+          const redemptionRecord = await completeRedemption(
+            selectedReward.id,
+            walletAddress,
+            redemptionResult.transactionHash!
+          )
+
+          // Refresh PLT balance after successful redemption
+          const newPltBalance = await getPltBalance(walletAddress)
+          setRealPltBalance(newPltBalance)
+
+          // Update history with the successful redemption from backend
+          const newRedemptionEntry: HistoryEntry = {
+            ...redemptionRecord,
+            type: "redeemed",
+          }
+          setHistory((prev) => [newRedemptionEntry, ...prev])
+
+          // Store redemption data for QR code
+          setRedemptionData({
+            claimCode: redemptionRecord.claimCode,
+            rewardTitle: selectedReward.title,
+            merchantName: selectedReward.merchantName,
+            redeemedPoints: selectedReward.requiredPoints,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+          })
+
+          // Close confirmation modal and show QR directly
+          setIsRedeemModalOpen(false)
+          setShowQRModal(true)
+        } catch (backendError: any) {
+          console.warn("Backend redemption record creation failed, but blockchain transaction succeeded:", backendError)
+          
+          // Create local redemption record as fallback
+          const localRedemptionRecord = {
+            id: `local-${Date.now()}`,
+            rewardId: selectedReward.id,
+            rewardTitle: selectedReward.title,
+            redeemedDate: new Date().toISOString(),
+            claimCode: `LOCAL-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+            transactionHash: redemptionResult.transactionHash,
+          }
+
+          // Update history with local redemption record
+          const newRedemptionEntry: HistoryEntry = {
+            ...localRedemptionRecord,
+            type: "redeemed",
+            merchantName: selectedReward.merchantName,
+            redeemedPoints: selectedReward.requiredPoints,
+          }
+          setHistory((prev) => [newRedemptionEntry, ...prev])
+
+          // Store redemption data for QR code
+          setRedemptionData({
+            claimCode: localRedemptionRecord.claimCode,
+            rewardTitle: selectedReward.title,
+            merchantName: selectedReward.merchantName,
+            redeemedPoints: selectedReward.requiredPoints,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+          })
+
+          // Close confirmation modal and show QR directly
+          setIsRedeemModalOpen(false)
+          setShowQRModal(true)
+        }
+      } else {
+        throw new Error(redemptionResult.error || "Redemption failed")
+      }
+    } catch (error: any) {
+      console.error("Redemption error:", error)
+      setErrorMessage(error.message || "Failed to redeem reward")
+      setShowErrorModal(true)
     } finally {
       setIsRedeeming(false)
-      setIsRedeemModalOpen(false)
-      setSelectedReward(null)
+      setRedemptionStep('idle')
     }
   }
 
@@ -643,6 +754,7 @@ export default function UserDashboardPage() {
             rewardTitle={selectedReward.title}
             requiredPoints={selectedReward.requiredPoints}
             isLoading={isRedeeming}
+            currentStep={redemptionStep}
           />
         )}
 

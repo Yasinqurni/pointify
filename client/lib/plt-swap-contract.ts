@@ -41,6 +41,16 @@ export const PLT_SWAP_ABI = [
     outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
     stateMutability: 'view',
     type: 'function'
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'merchant', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' }
+    ],
+    name: 'redeemToMerchant',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
   }
 ]
 
@@ -239,7 +249,7 @@ export async function checkApprovalNeeded(
 
 /**
  * Safe approve function for ERC20 tokens
- * First resets allowance to 0, then approves the new amount
+ * Approves the amount directly without resetting
  */
 export async function safeApprove(
   token: ethers.Contract,
@@ -260,18 +270,14 @@ export async function safeApprove(
     const currentAllowance = await token.allowance(userAddress, spender)
     console.log('Current allowance:', currentAllowance.toString())
     
-    // If there's an existing allowance, reset it to 0 first
-    if (currentAllowance.gt(0)) {
-      console.log('Resetting allowance to 0...')
-      const resetTx = await token.approve(spender, 0)
-      await resetTx.wait()
-      console.log('Allowance reset confirmed')
-    }
-    
-    // Approve the new amount
-    console.log('Approving new amount:', amount.toString())
+    // Approve the amount directly (ERC20 will handle the allowance)
+    console.log('Approving amount:', amount.toString())
+    console.log('About to call token.approve...')
     const approveTx = await token.approve(spender, amount)
+    console.log('Approve transaction sent:', approveTx.hash)
+    console.log('Waiting for transaction confirmation...')
     const receipt = await approveTx.wait()
+    console.log('Transaction confirmed!')
     
     console.log('Safe approve completed:', receipt.transactionHash)
     return receipt.transactionHash
@@ -411,6 +417,48 @@ export async function topUpPlt(
     return {
       status: 'error',
       error: error.message || 'Swap failed'
+    }
+  }
+}
+
+/**
+ * Redeem PLT tokens to merchant
+ */
+export async function redeemToMerchant(
+  merchantAddress: string,
+  amount: number,
+  signer: ethers.Signer
+): Promise<SwapStatus> {
+  try {
+    console.log('Redeeming PLT to merchant...')
+    const swapContract = new ethers.Contract(PLT_SWAP_CONTRACT_ADDRESS, PLT_SWAP_ABI, signer)
+    
+    const redeemAmount = ethers.utils.parseEther(amount.toString())
+    
+    // Estimate gas first
+    const gasEstimate = await swapContract.estimateGas.redeemToMerchant(merchantAddress, redeemAmount)
+    console.log('Estimated gas for redemption:', gasEstimate.toString())
+    
+    // Add 20% buffer for gas
+    const gasLimit = gasEstimate.mul(120).div(100)
+    
+    const tx = await swapContract.redeemToMerchant(merchantAddress, redeemAmount, {
+      gasLimit: gasLimit
+    })
+    
+    console.log('Redemption transaction sent:', tx.hash)
+    const receipt = await tx.wait()
+    console.log('Redemption confirmed:', receipt.transactionHash)
+    
+    return {
+      status: 'success',
+      transactionHash: receipt.transactionHash
+    }
+  } catch (error: any) {
+    console.error('Redemption failed:', error)
+    return {
+      status: 'error',
+      error: error.message || 'Redemption failed'
     }
   }
 } 

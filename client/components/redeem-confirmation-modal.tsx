@@ -20,6 +20,7 @@ interface RedeemConfirmationModalProps {
   rewardTitle: string
   requiredPoints: number
   isLoading: boolean
+  currentStep?: 'idle' | 'approving' | 'redeeming' | 'creating-record'
 }
 
 export function RedeemConfirmationModal({
@@ -29,6 +30,7 @@ export function RedeemConfirmationModal({
   rewardTitle,
   requiredPoints,
   isLoading,
+  currentStep = 'idle',
 }: RedeemConfirmationModalProps) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
@@ -49,7 +51,10 @@ export function RedeemConfirmationModal({
           <AlertDialogAction asChild>
             <Button onClick={onConfirm} disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm
+              {currentStep === 'approving' ? 'Approving...' : 
+               currentStep === 'redeeming' ? 'Redeeming...' : 
+               currentStep === 'creating-record' ? 'Creating Record...' : 
+               'Confirm'}
             </Button>
           </AlertDialogAction>
         </AlertDialogFooter>

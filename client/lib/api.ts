@@ -14,6 +14,10 @@ export interface Reward {
   merchantLogoUrl: string
   requiredPoints: number
   expiryDate: string // YYYY-MM-DD
+  merchantWalletAddress?: string
+  merchant?: {
+    walletAddress: string
+  }
 }
 
 // Type for creating rewards (only fields that should be sent to server)
@@ -848,5 +852,33 @@ export async function updateLoyaltySettings(settings: UpdateLoyaltySettingsReque
   } catch (error) {
     console.error("Failed to update loyalty settings:", error)
     throw error
+  }
+}
+
+/**
+ * Complete redemption after blockchain transaction
+ */
+export async function completeRedemption(
+  rewardId: string,
+  walletAddress: string,
+  transactionHash: string
+): Promise<Redemption> {
+  console.log('Completing redemption after blockchain transaction...')
+  
+  try {
+    return await apiCall<Redemption>('/redemptions/complete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        rewardId,
+        walletAddress,
+        transactionHash,
+      }),
+    })
+  } catch (error) {
+    console.error('Failed to complete redemption:', error)
+    throw new Error('Failed to complete redemption. Please try again.')
   }
 }
