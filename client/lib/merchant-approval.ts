@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 
 // Contract addresses
-export const MERCHANT_REGISTRY_ADDRESS = '0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75'
+export const MERCHANT_REGISTRY_ADDRESS = '0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818'
 export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia.lisk.com'
 
 // ABI for merchant approval (admin function)

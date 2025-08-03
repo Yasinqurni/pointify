@@ -104,10 +104,30 @@ export class AuthService {
   async registerMerchant(walletAddress: string, name: string, description?: string, logoUrl?: string): Promise<AuthResponse> {
     const { signature, message } = await this.signMessage(walletAddress)
     const response = await registerMerchant({ walletAddress, signature, message, name, description, logoUrl })
-    if (!response.data?.accessToken || !response.data?.refreshToken) throw new Error('Missing tokens')
     
-    this.saveTokens(response.data.accessToken, response.data.refreshToken, response.data.user)
-    return response.data
+    console.log("🔍 Registration response:", response)
+    
+    // Handle different response structures
+    let authData: AuthResponse
+    
+    if (response.data) {
+      // Response has nested data structure
+      authData = response.data
+    } else if ((response as any).accessToken && (response as any).refreshToken) {
+      // Response has direct token structure
+      authData = response as any
+    } else {
+      console.error("❌ Invalid registration response structure:", response)
+      throw new Error('Invalid registration response. Please try again.')
+    }
+    
+    if (!authData.accessToken || !authData.refreshToken) {
+      console.error("❌ Missing tokens in response:", authData)
+      throw new Error('Missing tokens')
+    }
+    
+    this.saveTokens(authData.accessToken, authData.refreshToken, authData.user)
+    return authData
   }
 
   async refresh(): Promise<AuthResponse> {

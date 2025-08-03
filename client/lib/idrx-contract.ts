@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import { useWalletStore } from './store'
 
-// IDRX Token Contract Address  
+// IDRX Mock Token Contract Address on Lisk Sepolia
 export const IDRX_CONTRACT_ADDRESS = '0x7222435AC83D6c44052eB635112842Da458AEfD8'
 
 // Lisk Sepolia RPC URL
@@ -86,5 +86,8 @@ export async function connectAndFetchIDRX(): Promise<number> {
   return await getIDRXBalance(walletAddress)
 }
 
+// Re-export claim functions from idrx-claim-contract
+export { claimIDRXTokens, claimIDRXTokensSimple } from './idrx-claim-contract'
+
 // Export the function as default export too for convenience
-export default getIDRXBalance 
+export default getIDRXBalance

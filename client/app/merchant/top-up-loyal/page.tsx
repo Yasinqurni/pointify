@@ -5,6 +5,7 @@ import { useWalletStore } from "@/lib/store"
 import { mockTopUpLoyal } from "@/lib/ethers"
 import { balanceService } from "@/lib/balance-service"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatTokenBalance } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -133,7 +134,7 @@ export default function TopUpLoyalPage() {
               {loadingIDRX ? (
                 <div className="h-6 w-20 animate-pulse rounded-md bg-gray-200" />
               ) : (
-                <span className="text-2xl font-bold text-primary">{merchantIDRXBalance?.toFixed(2) || "0.00"}</span>
+                <span className="text-2xl font-bold text-primary">{formatTokenBalance(merchantIDRXBalance)}</span>
               )}
             </div>
 

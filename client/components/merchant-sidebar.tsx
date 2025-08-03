@@ -10,6 +10,7 @@ import { Home, Gift, QrCode, ListChecks, Wallet, ArrowUpCircle, Menu, LogOut, Us
 import { useWalletStore } from "@/lib/store"
 import { UserInfoModal } from "@/components/user-info-modal"
 import { useToast } from "@/components/ui/use-toast"
+import { formatTokenBalance } from "@/lib/utils"
 
 import { useEffect } from "react"
 
@@ -162,7 +163,7 @@ const MerchantSidebarContent = () => {
             {loadingBalances ? (
               <div className="h-4 w-16 animate-pulse rounded bg-muted" />
             ) : (
-              <span className="font-medium">{merchantIDRXBalance?.toFixed(2) || "0.00"}</span>
+              <span className="font-medium">{formatTokenBalance(merchantIDRXBalance)}</span>
             )}
           </div>
           <div className="flex items-center justify-between">
@@ -170,7 +171,7 @@ const MerchantSidebarContent = () => {
             {loadingBalances ? (
               <div className="h-4 w-16 animate-pulse rounded bg-muted" />
             ) : (
-              <span className="font-medium">{merchantLoyalBalance?.toFixed(2) || "0.00"}</span>
+              <span className="font-medium">{formatTokenBalance(merchantLoyalBalance)}</span>
             )}
           </div>
           <div className="flex items-center justify-between">
@@ -178,7 +179,7 @@ const MerchantSidebarContent = () => {
             {loadingBalances ? (
               <div className="h-4 w-16 animate-pulse rounded bg-muted" />
             ) : (
-              <span className="font-medium">{totalLoyalRewarded?.toFixed(2) || "0.00"}</span>
+              <span className="font-medium">{formatTokenBalance(totalLoyalRewarded)}</span>
             )}
           </div>
         </div>

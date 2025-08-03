@@ -1,11 +1,12 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { User, Store, Wallet, Sparkles, Star, Award, Zap, Shield, ArrowRight, CheckCircle, Menu, X } from "lucide-react"
+import { User, Store, Wallet, Sparkles, Star, Award, Zap, Shield, ArrowRight, CheckCircle, Menu, X, Coins } from "lucide-react"
 import { XellarConnect } from "@/components/xellar-connect"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useState } from "react"
+import Link from "next/link"
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -51,22 +52,33 @@ export default function LandingPage() {
 
       {/* Floating particles - reduced on mobile */}
       <div className="absolute inset-0">
-        {[...Array(10)].map((_, i) => (
+        {[
+          { left: 10, top: 20, delay: 0, duration: 3 },
+          { left: 80, top: 40, delay: 0.5, duration: 4 },
+          { left: 30, top: 70, delay: 1, duration: 3.5 },
+          { left: 90, top: 10, delay: 1.5, duration: 4.5 },
+          { left: 50, top: 80, delay: 2, duration: 3 },
+          { left: 20, top: 50, delay: 0.8, duration: 4.2 },
+          { left: 70, top: 30, delay: 1.2, duration: 3.8 },
+          { left: 40, top: 90, delay: 0.3, duration: 4.8 },
+          { left: 85, top: 60, delay: 1.8, duration: 3.2 },
+          { left: 15, top: 85, delay: 0.7, duration: 4.1 }
+        ].map((particle, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 md:w-2 md:h-2 bg-blue-400/30 rounded-full"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
+              left: `${particle.left}%`,
+              top: `${particle.top}%`,
             }}
             animate={{
               y: [0, -20, 0],
               opacity: [0.3, 0.8, 0.3],
             }}
             transition={{
-              duration: 3 + Math.random() * 2,
+              duration: particle.duration,
               repeat: Infinity,
-              delay: Math.random() * 2,
+              delay: particle.delay,
             }}
           />
         ))}
@@ -99,6 +111,12 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-blue-600 transition-colors">Features</a>
             <a href="#about" className="hover:text-blue-600 transition-colors">About</a>
             <a href="#contact" className="hover:text-blue-600 transition-colors">Contact</a>
+            <Button asChild variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50">
+              <Link href="/claim">
+                <Coins className="h-4 w-4 mr-2" />
+                Claim IDRXMock
+              </Link>
+            </Button>
           </motion.div>
 
           {/* Mobile Menu Button */}
@@ -147,6 +165,14 @@ export default function LandingPage() {
               >
                 Contact
               </a>
+              <Link 
+                href="/claim"
+                className="flex items-center text-orange-600 hover:text-orange-700 transition-colors py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Coins className="h-4 w-4 mr-2" />
+                Claim IDRXMock
+              </Link>
             </div>
           </motion.div>
         )}

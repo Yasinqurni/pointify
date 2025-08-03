@@ -3,6 +3,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Copy, Check, Network, Coins } from "lucide-react"
+import { formatTokenBalance } from "@/lib/utils"
 import { useState } from "react"
 import { useToast } from "@/components/ui/use-toast"
 import { useWalletStore } from "@/lib/store"
@@ -97,7 +98,7 @@ export function UserInfoModal({
           {loyalBalance !== null && (
             <div className="flex items-center justify-between">
               <span className="font-medium">LOYAL Balance:</span>
-              <span>{(loyalBalance || 0).toFixed(2)}</span>
+              <span>{formatTokenBalance(loyalBalance)}</span>
             </div>
           )}
           {userType === "merchant" && (
@@ -105,13 +106,13 @@ export function UserInfoModal({
               {idrxBalance !== null && (
                 <div className="flex items-center justify-between">
                   <span className="font-medium">IDRX Balance:</span>
-                  <span>{(idrxBalance || 0).toFixed(2)}</span>
+                  <span>{formatTokenBalance(idrxBalance)}</span>
                 </div>
               )}
               {totalLoyalRewarded !== null && (
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Total LOYAL Rewarded:</span>
-                  <span>{(totalLoyalRewarded || 0).toFixed(2)}</span>
+                  <span>{formatTokenBalance(totalLoyalRewarded)}</span>
                 </div>
               )}
             </>

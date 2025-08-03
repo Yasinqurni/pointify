@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 import { getIDRXBalance } from './idrx-contract'
 
 // Merchant Registry Contract Address
-export const MERCHANT_REGISTRY_ADDRESS = '0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75'
+export const MERCHANT_REGISTRY_ADDRESS = '0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818'
 
 // Lisk Sepolia RPC URL
 export const LISK_SEPOLIA_RPC = 'https://rpc.sepolia.lisk.com'
@@ -38,7 +38,7 @@ export async function checkIDRXBalance(address: string): Promise<{ hasEnough: bo
 /**
  * Register merchant on contract
  * Uses a custom provider: https://rpc.sepolia-api.lisk.com
- * Loads the contract at 0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75
+ * Loads the contract at 0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818
  */
 export async function registerMerchantOnContract(
   merchantAddress: string, 
