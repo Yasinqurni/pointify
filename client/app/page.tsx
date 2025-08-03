@@ -1,11 +1,12 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { User, Store, Wallet, Sparkles, Star, Award, Zap, Shield, ArrowRight, CheckCircle, Menu, X } from "lucide-react"
+import { User, Store, Wallet, Sparkles, Star, Award, Zap, Shield, ArrowRight, CheckCircle, Menu, X, Coins } from "lucide-react"
 import { XellarConnect } from "@/components/xellar-connect"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useState } from "react"
+import Link from "next/link"
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -240,6 +241,21 @@ export default function LandingPage() {
                             <ArrowRight className="h-3 w-3 md:h-4 md:w-4 ml-auto" />
                           </div>
                         </XellarConnect>
+                        
+                        <div className="pt-2 border-t border-gray-200">
+                          <Link href="/claim-idrx">
+                            <Button 
+                              variant="outline" 
+                              className="w-full h-10 md:h-12 text-sm md:text-base border-blue-200 hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              <div className="flex items-center justify-center space-x-2 md:space-x-3 w-full">
+                                <Coins className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                                <span>Claim 1000 IDRX Dummy</span>
+                                <ArrowRight className="h-3 w-3 md:h-4 md:w-4 ml-auto text-blue-600" />
+                              </div>
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
 
                       <div className="pt-3 md:pt-4 border-t border-gray-200">

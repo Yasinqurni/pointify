@@ -306,6 +306,44 @@
       "artifacts": [
         "Ownable"
       ]
+    },
+    "/Users/ultravoucher/projekan/web3/pointify/contracts/IDRXFaucet.sol": {
+      "lastModificationDate": 1754227223042,
+      "contentHash": "32179c4e693327e5165a612bdbbb25ee",
+      "sourceName": "contracts/IDRXFaucet.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./ERC20Mock.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IDRXFaucet"
+      ]
     }
   }
 }
