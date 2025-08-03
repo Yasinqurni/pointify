@@ -6,7 +6,7 @@ async function main() {
 
   // Get the TreasuryManager contract
   const TreasuryManager = await ethers.getContractFactory("TreasuryManager");
-  const treasuryManager = await TreasuryManager.attach("0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75"); // Replace with actual address
+  const treasuryManager = await TreasuryManager.attach("0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818"); // Replace with actual address
 
   // Merchant address to register
   const merchantAddress = "0x03722Ff08dd735567B2c3fF82eB331d92c307c3b";

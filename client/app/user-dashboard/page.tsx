@@ -269,7 +269,7 @@ export default function UserDashboardPage() {
         })
         
         // Get PLT token contract
-        const pltTokenAddress = "0x04f0c7778AD75B535Ca478Cc01eA8574C7Ca3A7E" // PLT token address
+        const pltTokenAddress = "0x929f30a023CCA95301ECc5f8b97d7C32862B774f" // PLT token address
         console.log('🔍 Creating PLT token contract with address:', pltTokenAddress)
         const pltTokenContract = new ethers.Contract(pltTokenAddress, [
           "function approve(address spender, uint256 amount) returns (bool)",
@@ -279,9 +279,9 @@ export default function UserDashboardPage() {
         // Approve PLT tokens for the swap contract
         const approveAmount = ethers.utils.parseUnits(selectedReward.requiredPoints.toString(), 18)
         console.log('🔍 Approving amount:', approveAmount.toString())
-        console.log('🔍 For spender:', "0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75")
+        console.log('🔍 For spender:', "0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818")
         
-        const approvalTxHash = await safeApprove(pltTokenContract, "0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75", approveAmount, signer)
+        const approvalTxHash = await safeApprove(pltTokenContract, "0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818", approveAmount, signer)
         console.log('🔍 Approval transaction hash:', approvalTxHash)
         
         toast({

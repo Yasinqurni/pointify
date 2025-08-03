@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast"
 
 import { motion } from "framer-motion" // Added for animations
 import Image from "next/image" // For business logo
+import { formatTokenBalance } from "@/lib/utils"
 
 export default function DashboardPage() {
   const {
@@ -305,10 +306,7 @@ export default function DashboardPage() {
                     <Wallet className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-primary" />
                   </div>
                   <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-1 sm:mb-2">
-                    {merchantIDRXBalance?.toLocaleString('en-US', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    }) || "0.00"}
+                    {formatTokenBalance(merchantIDRXBalance)}
                   </div>
                   <p className="text-sm sm:text-base md:text-lg font-medium text-muted-foreground mb-3 sm:mb-4">IDRX Balance</p>
                   <div className="flex flex-col sm:flex-row gap-2 w-full">

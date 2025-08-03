@@ -5,9 +5,11 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useWalletStore } from "@/lib/store"
 import { useToast } from "@/components/ui/use-toast"
-import { Wallet, AlertCircle, Loader2, Sparkles } from "lucide-react"
+import { Wallet, AlertCircle, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { xellar } from "@/lib/xellar"
+import { FancyLoader, SuccessAnimation } from "./fancy-loader"
+import { ConnectionOverlay } from "./connection-overlay"
 
 
 interface XellarConnectProps {
@@ -18,6 +20,7 @@ interface XellarConnectProps {
 
 export function XellarConnect({ userType, children, disableRedirect = false }: XellarConnectProps) {
   const [connecting, setConnecting] = useState(false)
+  const [success, setSuccess] = useState(false)
   const [walletError, setWalletError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -40,7 +43,14 @@ export function XellarConnect({ userType, children, disableRedirect = false }: X
     const available = providers.filter(p => p.provider).sort((a, b) => a.priority - b.priority)
     
     console.log("🔍 Available wallet providers:", available.map(p => p.name))
-    return available.length > 0 ? available[0] : null
+    
+    // Add a small delay to ensure provider is fully initialized
+    if (available.length === 0) {
+      console.log("⚠️ No providers found, waiting for initialization...")
+      return null
+    }
+    
+    return available[0]
   }
 
   const isMobile = () => {
@@ -126,6 +136,10 @@ export function XellarConnect({ userType, children, disableRedirect = false }: X
         description: `Successfully connected as ${userType} to ${address.slice(0, 6)}...${address.slice(-4)}`,
       })
 
+      // Show success state briefly before redirect
+      setConnecting(false)
+      setSuccess(true)
+      
       // Redirect to appropriate dashboard after successful connection (unless disabled)
       if (!disableRedirect) {
         setTimeout(() => {
@@ -136,9 +150,11 @@ export function XellarConnect({ userType, children, disableRedirect = false }: X
             console.log("🔀 Redirecting user to user dashboard")
             router.push("/user-dashboard")
           }
-        }, 1000) // Small delay to ensure store is updated
+        }, 2000) // Show success animation for 2 seconds
       } else {
         console.log("🔀 Redirect disabled, staying on current page")
+        // Reset success state after a delay if no redirect
+        setTimeout(() => setSuccess(false), 2000)
       }
       
     } catch (error: any) {
@@ -169,28 +185,31 @@ export function XellarConnect({ userType, children, disableRedirect = false }: X
   }
 
   return (
-    <div className="space-y-3">
-      {walletError && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700"
-        >
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <span className="text-sm font-medium">{walletError}</span>
-        </motion.div>
-      )}
+    <>
+      <ConnectionOverlay isVisible={connecting || success} userType={userType} isSuccess={success} />
       
-      <motion.button
-        onClick={handleConnect}
-        whileHover={{ 
-          scale: 1.02,
-          boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)"
-        }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full relative overflow-hidden group"
-        disabled={connecting}
-      >
+      <div className="space-y-3">
+        {walletError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700"
+          >
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <span className="text-sm font-medium">{walletError}</span>
+          </motion.div>
+        )}
+        
+        <motion.button
+          onClick={handleConnect}
+          whileHover={{ 
+            scale: 1.02,
+            boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)"
+          }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full relative overflow-hidden group"
+          disabled={connecting}
+        >
         {/* Gradient background */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300"></div>
         
@@ -209,8 +228,7 @@ export function XellarConnect({ userType, children, disableRedirect = false }: X
               animate={{ opacity: 1 }}
               className="flex items-center gap-3"
             >
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Connecting...</span>
+              <FancyLoader message={`Connecting as ${userType}...`} size="sm" />
             </motion.div>
           ) : (
             <motion.div
@@ -230,6 +248,7 @@ export function XellarConnect({ userType, children, disableRedirect = false }: X
         {/* Hover effect overlay */}
         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
       </motion.button>
-    </div>
+      </div>
+    </>
   )
 } 

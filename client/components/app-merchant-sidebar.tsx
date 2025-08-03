@@ -7,6 +7,7 @@ import { Home, Store, Award, Settings, Sparkles, RefreshCcw, Package, Gift, Wall
 import { useWalletStore } from "@/lib/store"
 import { UserInfoModal } from "@/components/user-info-modal"
 import { useToast } from "@/components/ui/use-toast"
+import { formatTokenBalance } from "@/lib/utils"
 import { balanceService } from "@/lib/balance-service"
 import { fetchMerchantData } from "@/lib/api"
 import { authService } from "@/lib/auth"
@@ -91,6 +92,24 @@ const MerchantSidebarContent = () => {
   useEffect(() => {
     const loadMerchantData = async () => {
       if (walletAddress && userType === "merchant" && !authErrorHandled) {
+        // Add a small delay to ensure authentication is properly set up
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Check if user is authenticated before making API call
+        const isAuthenticated = authService.isAuthenticated()
+        if (!isAuthenticated) {
+          console.log("🔍 User not authenticated, skipping merchant data fetch")
+          setMerchantData({
+            name: "Merchant",
+            description: "",
+            logoUrl: "",
+            walletAddress: walletAddress || "",
+            createdAt: new Date().toISOString(),
+          })
+          setLoadingMerchantData(false)
+          return
+        }
+
         setLoadingMerchantData(true)
         try {
           const data = await fetchMerchantData()
@@ -212,10 +231,7 @@ const MerchantSidebarContent = () => {
                 ) : (
                   <div className="flex flex-col items-end">
                     <span className="text-xs sm:text-sm font-bold text-blue-600">
-                      {merchantIDRXBalance?.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      }) || "0.00"}
+                      {formatTokenBalance(merchantIDRXBalance)}
                     </span>
                     <span className="text-xs text-green-600 font-medium">Real Balance</span>
                   </div>
@@ -231,10 +247,7 @@ const MerchantSidebarContent = () => {
                   <div className="h-2.5 w-8 sm:h-3 sm:w-12 animate-pulse rounded bg-muted" />
                 ) : (
                   <span className="text-xs sm:text-sm font-bold text-green-600">
-                    {realPltBalance.toLocaleString('en-US', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
+                    {formatTokenBalance(realPltBalance)}
                   </span>
                 )}
               </div>
@@ -251,10 +264,7 @@ const MerchantSidebarContent = () => {
               <div className="h-3 w-12 sm:h-4 sm:w-16 animate-pulse rounded bg-muted" />
             ) : (
               <span className="text-sm sm:text-lg font-bold text-purple-600">
-                {totalLoyalRewarded?.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                }) || "0.00"}
+                {formatTokenBalance(totalLoyalRewarded)}
               </span>
             )}
           </div>

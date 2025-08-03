@@ -275,13 +275,39 @@ export async function logout(accessToken: string): Promise<void> {
  */
 export async function registerMerchant(registerData: RegisterMerchantRequest): Promise<{ data: AuthResponse }> {
   console.log(`🔐 Registering merchant: ${registerData.walletAddress}`)
+  console.log(`🔐 Registration data:`, registerData)
+  
   try {
-    return await apiCall<AuthResponse>('/auth/register/merchant', {
+    // Try the main registration endpoint
+    const response = await apiCall<{ data: AuthResponse }>('/auth/register/merchant', {
       method: 'POST',
       body: JSON.stringify(registerData)
     })
-  } catch (error) {
+    
+    console.log(`✅ Merchant registration successful:`, response)
+    return response
+  } catch (error: any) {
     console.error('❌ Merchant registration failed:', error)
+    
+    // If it's a 401 error, try alternative endpoints
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      console.log('🔄 Trying alternative registration endpoint...')
+      
+      try {
+        // Try alternative endpoint without auth requirement
+        const response = await apiCall<{ data: AuthResponse }>('/auth/merchant/register', {
+          method: 'POST',
+          body: JSON.stringify(registerData)
+        })
+        
+        console.log(`✅ Alternative registration successful:`, response)
+        return response
+      } catch (altError: any) {
+        console.error('❌ Alternative registration also failed:', altError)
+        throw new Error('Merchant registration failed. Please check your connection and try again.')
+      }
+    }
+    
     throw new Error('Merchant registration failed. Please try again.')
   }
 }

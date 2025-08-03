@@ -15,6 +15,7 @@ import {
   ExternalLink 
 } from "lucide-react"
 import { web3Service, LISK_SEPOLIA_CONFIG } from "@/lib/web3"
+import { formatTokenBalance } from "@/lib/utils"
 
 
 export function WalletInfo() {
@@ -115,7 +116,7 @@ export function WalletInfo() {
               </Badge>
             )}
           </div>
-            </div>
+        </div>
 
         {/* Balance */}
         {ethBalance && (
@@ -187,7 +188,7 @@ export function WalletInfo() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Balance:</span>
-                <span className="font-medium text-lg">{merchantIDRXBalance?.toFixed(2) || "0.00"} IDRX</span>
+                <span className="font-medium text-lg">{formatTokenBalance(merchantIDRXBalance)} IDRX</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Contract:</span>

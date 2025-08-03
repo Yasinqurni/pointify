@@ -1,8 +1,8 @@
 import { ethers } from 'ethers'
 
 // Contract addresses
-export const REWARD_CONTRACT_ADDRESS = '0xb481aA7164BE29c0a2c5e6b53Dfc84081bC4bC75' // Same as PLT swap contract for now
-export const PLT_TOKEN_ADDRESS = '0x04f0c7778AD75B535Ca478Cc01eA8574C7Ca3A7E'
+export const REWARD_CONTRACT_ADDRESS = '0xC2ad80E574f02D984E0fD3dA3C4cD221431A8818' // Same as PLT swap contract for now
+export const PLT_TOKEN_ADDRESS = '0x929f30a023CCA95301ECc5f8b97d7C32862B774f'
 
 // ABI for the reward contract - using the full PLT swap contract ABI since they share the same address
 export const REWARD_ABI = [
