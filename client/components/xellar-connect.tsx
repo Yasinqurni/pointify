@@ -13,9 +13,10 @@ import { xellar } from "@/lib/xellar"
 interface XellarConnectProps {
   userType: "user" | "merchant"
   children: React.ReactNode
+  disableRedirect?: boolean
 }
 
-export function XellarConnect({ userType, children }: XellarConnectProps) {
+export function XellarConnect({ userType, children, disableRedirect = false }: XellarConnectProps) {
   const [connecting, setConnecting] = useState(false)
   const [walletError, setWalletError] = useState<string | null>(null)
   const router = useRouter()
@@ -125,16 +126,20 @@ export function XellarConnect({ userType, children }: XellarConnectProps) {
         description: `Successfully connected as ${userType} to ${address.slice(0, 6)}...${address.slice(-4)}`,
       })
 
-      // Redirect to appropriate dashboard after successful connection
-      setTimeout(() => {
-        if (userType === "merchant") {
-          console.log("🔀 Redirecting merchant to dashboard")
-          router.push("/dashboard")
-        } else if (userType === "user") {
-          console.log("🔀 Redirecting user to user dashboard")
-          router.push("/user-dashboard")
-        }
-      }, 1000) // Small delay to ensure store is updated
+      // Redirect to appropriate dashboard after successful connection (unless disabled)
+      if (!disableRedirect) {
+        setTimeout(() => {
+          if (userType === "merchant") {
+            console.log("🔀 Redirecting merchant to dashboard")
+            router.push("/dashboard")
+          } else if (userType === "user") {
+            console.log("🔀 Redirecting user to user dashboard")
+            router.push("/user-dashboard")
+          }
+        }, 1000) // Small delay to ensure store is updated
+      } else {
+        console.log("🔀 Redirect disabled, staying on current page")
+      }
       
     } catch (error: any) {
       console.error("❌ Wallet connection error:", error)

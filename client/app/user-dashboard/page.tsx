@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useWalletStore } from "@/lib/store"
+import Link from "next/link"
 import {
   fetchRewards,
   type Reward,

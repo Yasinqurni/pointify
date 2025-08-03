@@ -65,7 +65,7 @@ export default function ClaimIDRXPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Get free IDRX dummy tokens for testing the Pointify platform. 
-              Connect your wallet and claim 1000 IDRX tokens instantly.
+              Connect your wallet and claim 10000 IDRX tokens instantly.
             </p>
           </div>
         </motion.div>
@@ -82,12 +82,12 @@ export default function ClaimIDRXPage() {
                 <CardHeader className="text-center">
                   <CardTitle>Connect Your Wallet</CardTitle>
                   <CardDescription>
-                    Connect your wallet to claim IDRX dummy tokens
+                    Connect your wallet to claim IDRX Mock tokens
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <XellarConnect userType="user">
-                    <span>Connect to claim IDRX tokens</span>
+                    <span>Connect to claim IDRX Mock tokens</span>
                   </XellarConnect>
                 </CardContent>
               </Card>

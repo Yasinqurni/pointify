@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 
 // IDRX Mock Token Contract Address
-export const IDRX_MOCK_CONTRACT_ADDRESS = '0x7222435AC83D6c44052eB635112842Da458AEfD8'
+export const IDRX_MOCK_CONTRACT_ADDRESS = '0x0e6A2cc12990B80943972E7E07828CeDb4119b0E'
 
 // Lisk Sepolia Network Configuration
 export const LISK_SEPOLIA_CONFIG = {
@@ -11,21 +11,110 @@ export const LISK_SEPOLIA_CONFIG = {
   blockExplorer: 'https://sepolia-blockscout.lisk.com'
 }
 
-// ABI for IDRX Faucet contract with faucet functionality
+// ABI for the deployed faucet contract
 export const IDRX_MOCK_ABI = [
-  'function mint(address to, uint256 amount) external',
-  'function mintTo(address to, uint256 amount) external',
-  'function faucet() external returns (bool)',
-  'function claim() external returns (bool)',
-  'function canUserClaim(address user) external view returns (bool canClaim, uint256 timeUntilNextClaim)',
-  'function getUserLastClaimTime(address user) external view returns (uint256)',
-  'function getFaucetInfo() external view returns (uint256 faucetBalance, uint256 dailyAmount, uint256 cooldownPeriod)',
-  'function balanceOf(address owner) view returns (uint256)',
-  'function decimals() view returns (uint8)',
-  'function symbol() view returns (string)',
-  'function name() view returns (string)',
-  'function owner() view returns (address)',
-  'function totalSupply() view returns (uint256)'
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_tokenAddress",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "DAILY_LIMIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "canClaim",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "claim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "lastClaimedAt",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pltToken",
+    "outputs": [
+      {
+        "internalType": "contract IPLTToken",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawAll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
 ]
 
 /**
@@ -55,43 +144,14 @@ export async function claimIDRXTokensSimple(amount: number): Promise<string> {
     // Create contract instance
     const contract = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, signer)
 
-    // Convert amount to wei (18 decimals)
-    const amountInWei = ethers.utils.parseEther(amount.toString())
-
-    console.log('Amount in Wei:', amountInWei.toString())
-
-    // Check if the connected wallet is the owner
-    let isOwner = false
-    try {
-      const owner = await contract.owner()
-      isOwner = owner.toLowerCase() === connectedAddress.toLowerCase()
-      console.log('Contract Owner:', owner)
-      console.log('Connected Address:', connectedAddress)
-      console.log('Is Owner:', isOwner)
-    } catch (error) {
-      console.log('Could not check owner, proceeding with mint attempt...')
-    }
-
-    // Check if user can claim first
-    const canClaimResult = await contract.canUserClaim(connectedAddress)
-    const canClaim = canClaimResult[0]
-    const timeUntilNextClaim = canClaimResult[1]
-    
-    if (!canClaim) {
-      const hoursLeft = Math.ceil(Number(timeUntilNextClaim) / 3600)
-      throw new Error(`You can only claim once every 24 hours. Please wait ${hoursLeft} hours before claiming again.`)
-    }
-    
-    // Try faucet function (primary method for IDRXFaucet)
+    // Estimate gas for claim function
     let gasEstimate
-    let mintMethod = 'faucet'
-    
     try {
-      gasEstimate = await contract.estimateGas.faucet()
-      console.log('✅ Faucet method available, gas estimate:', gasEstimate.toString())
+      gasEstimate = await contract.estimateGas.claim()
+      console.log('✅ Claim method available, gas estimate:', gasEstimate.toString())
     } catch (error) {
-      console.log('❌ Faucet method failed:', (error as Error).message)
-      throw new Error('Faucet is not available. Please contact admin.')
+      console.log('❌ Claim method failed:', (error as Error).message)
+      throw new Error('Claim is not available. Please contact admin.')
     }
 
     // Get current gas price and optimize it for Lisk Sepolia
@@ -102,9 +162,9 @@ export async function claimIDRXTokensSimple(amount: number): Promise<string> {
     const optimizedGasPrice = ethers.utils.parseUnits('1', 'gwei')
     console.log('Optimized Gas Price:', ethers.utils.formatUnits(optimizedGasPrice, 'gwei'), 'gwei')
     
-    // Execute the faucet transaction with optimized gas settings
+    // Execute the claim transaction with optimized gas settings
     const txOptions = {
-      gasLimit: gasEstimate.mul(110).div(100), // Add 10% buffer (reduced from 20%)
+      gasLimit: gasEstimate.mul(110).div(100), // Add 10% buffer
       gasPrice: optimizedGasPrice // Use optimized gas price
     }
     
@@ -114,9 +174,9 @@ export async function claimIDRXTokensSimple(amount: number): Promise<string> {
       estimatedCost: ethers.utils.formatEther(txOptions.gasLimit.mul(txOptions.gasPrice)) + ' ETH'
     })
     
-    // Execute faucet transaction
-    console.log('Executing faucet transaction...')
-    const tx = await contract.faucet(txOptions)
+    // Execute claim transaction
+    console.log('Executing claim transaction...')
+    const tx = await contract.claim(txOptions)
 
     console.log('Transaction sent:', tx.hash)
 
@@ -134,13 +194,11 @@ export async function claimIDRXTokensSimple(amount: number): Promise<string> {
     
     // Handle specific error cases
     if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
-      throw new Error('Transaction would fail. You might not have permission to mint tokens or insufficient gas.')
+      throw new Error('Transaction would fail. You might not have permission to claim tokens or insufficient gas.')
     } else if (error.code === 'INSUFFICIENT_FUNDS') {
       throw new Error('Insufficient ETH balance to pay for gas fees.')
     } else if (error.message?.includes('user rejected')) {
       throw new Error('Transaction was rejected by user.')
-    } else if (error.message?.includes('Only owner')) {
-      throw new Error('Only the contract owner can mint tokens.')
     } else {
       throw new Error(error.message || 'Failed to claim IDRX tokens')
     }
@@ -148,10 +206,8 @@ export async function claimIDRXTokensSimple(amount: number): Promise<string> {
 }
 
 /**
- * Claim IDRX dummy tokens by minting them to the user's address
- * This function calls the mint function on the IDRX Mock contract
- * Note: This requires the connected wallet to be the owner of the contract
- * or the contract to have a public mint function
+ * Claim IDRX dummy tokens using the claim function
+ * This function calls the claim function on the IDRX contract
  */
 export async function claimIDRXTokens(
   userAddress: string,
@@ -180,69 +236,21 @@ export async function claimIDRXTokens(
       throw new Error(`Please switch to Lisk Sepolia testnet (Chain ID: ${LISK_SEPOLIA_CONFIG.chainId}). Current network: ${network.chainId}`)
     }
     
-    // Get the connected address (this should be the same as userAddress)
+    // Get the connected address
     const connectedAddress = await signer.getAddress()
     console.log('Connected Address:', connectedAddress)
-    console.log('Target Address:', userAddress)
-    
-    // Use the connected address as the target to ensure consistency
-    const targetAddress = connectedAddress
 
     // Create contract instance
     const contract = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, signer)
 
-    // Convert amount to wei (18 decimals)
-    const amountInWei = ethers.utils.parseEther(amount.toString())
-
-    console.log('Amount in Wei:', amountInWei.toString())
-
-    // Check if the connected wallet is the owner
-    let isOwner = false
-    try {
-      const owner = await contract.owner()
-      isOwner = owner.toLowerCase() === connectedAddress.toLowerCase()
-      console.log('Contract Owner:', owner)
-      console.log('Connected Address:', connectedAddress)
-      console.log('Is Owner:', isOwner)
-    } catch (error) {
-      console.log('Could not check owner, proceeding with mint attempt...')
-    }
-
-    // Try different minting approaches in order of preference (cheapest first)
+    // Estimate gas for claim function
     let gasEstimate
-    let mintMethod = 'unknown'
-    
-    // 1. Try public faucet function first (cheapest)
     try {
-      gasEstimate = await contract.estimateGas.faucet()
-      mintMethod = 'faucet'
-      console.log('Using faucet method - Gas Estimate:', gasEstimate.toString())
+      gasEstimate = await contract.estimateGas.claim()
+      console.log('✅ Claim method available, gas estimate:', gasEstimate.toString())
     } catch (error) {
-      console.log('Faucet method not available, trying claim...')
-      
-      // 2. Try public claim function
-      try {
-        gasEstimate = await contract.estimateGas.claim()
-        mintMethod = 'claim'
-        console.log('Using claim method - Gas Estimate:', gasEstimate.toString())
-      } catch (error) {
-        console.log('Claim method not available, trying mint functions...')
-        
-        // 3. Try owner-only mint functions
-        try {
-          if (isOwner) {
-            gasEstimate = await contract.estimateGas.mint(targetAddress, amountInWei)
-            mintMethod = 'mint'
-          } else {
-            gasEstimate = await contract.estimateGas.mintTo(targetAddress, amountInWei)
-            mintMethod = 'mintTo'
-          }
-          console.log(`Using ${mintMethod} method - Gas Estimate:`, gasEstimate.toString())
-        } catch (error) {
-          console.error('All gas estimation methods failed:', error)
-          throw new Error('Transaction would fail. You might not have permission to mint tokens or the contract does not support public minting.')
-        }
-      }
+      console.log('❌ Claim method failed:', (error as Error).message)
+      throw new Error('Claim is not available. Please contact admin.')
     }
 
     // Get current gas price and optimize it for Lisk Sepolia
@@ -253,10 +261,9 @@ export async function claimIDRXTokens(
     const optimizedGasPrice = ethers.utils.parseUnits('1', 'gwei')
     console.log('Optimized Gas Price:', ethers.utils.formatUnits(optimizedGasPrice, 'gwei'), 'gwei')
     
-    // Execute the mint transaction with optimized gas settings
-    let tx
+    // Execute the claim transaction with optimized gas settings
     const txOptions = {
-      gasLimit: gasEstimate.mul(110).div(100), // Add 10% buffer (reduced from 20%)
+      gasLimit: gasEstimate.mul(110).div(100), // Add 10% buffer
       gasPrice: optimizedGasPrice // Use optimized gas price
     }
     
@@ -266,25 +273,9 @@ export async function claimIDRXTokens(
       estimatedCost: ethers.utils.formatEther(txOptions.gasLimit.mul(txOptions.gasPrice)) + ' ETH'
     })
     
-    // Execute transaction based on the successful method
-    console.log(`Executing ${mintMethod} transaction...`)
-    
-    switch (mintMethod) {
-      case 'faucet':
-        tx = await contract.faucet(txOptions)
-        break
-      case 'claim':
-        tx = await contract.claim(txOptions)
-        break
-      case 'mint':
-        tx = await contract.mint(targetAddress, amountInWei, txOptions)
-        break
-      case 'mintTo':
-        tx = await contract.mintTo(targetAddress, amountInWei, txOptions)
-        break
-      default:
-        throw new Error('No valid minting method found')
-    }
+    // Execute claim transaction
+    console.log('Executing claim transaction...')
+    const tx = await contract.claim(txOptions)
 
     console.log('Transaction sent:', tx.hash)
 
@@ -302,13 +293,11 @@ export async function claimIDRXTokens(
     
     // Handle specific error cases
     if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
-      throw new Error('Transaction would fail. You might not have permission to mint tokens or insufficient gas.')
+      throw new Error('Transaction would fail. You might not have permission to claim tokens or insufficient gas.')
     } else if (error.code === 'INSUFFICIENT_FUNDS') {
       throw new Error('Insufficient ETH balance to pay for gas fees.')
     } else if (error.message?.includes('user rejected')) {
       throw new Error('Transaction was rejected by user.')
-    } else if (error.message?.includes('Only owner')) {
-      throw new Error('Only the contract owner can mint tokens.')
     } else {
       throw new Error(error.message || 'Failed to claim IDRX tokens')
     }
@@ -316,7 +305,9 @@ export async function claimIDRXTokens(
 }
 
 /**
- * Check if the current user can mint IDRX tokens
+ * Check if the current user can claim IDRX tokens
+ * Since the new contract only has a claim function, we'll return true
+ * as the claim function should handle its own validation
  */
 export async function canMintIDRX(): Promise<boolean> {
   try {
@@ -324,27 +315,18 @@ export async function canMintIDRX(): Promise<boolean> {
       return false
     }
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    const signer = provider.getSigner()
-    const connectedAddress = await signer.getAddress()
-    const contract = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, provider)
-
-    // Check if user is the owner
-    try {
-      const owner = await contract.owner()
-      return owner.toLowerCase() === connectedAddress.toLowerCase()
-    } catch (error) {
-      console.log('Could not check owner status:', error)
-      return false
-    }
+    // For the simplified contract, we assume anyone can claim
+    // The contract's claim function will handle its own validation
+    return true
   } catch (error) {
-    console.error('Error checking mint permission:', error)
+    console.error('Error checking claim permission:', error)
     return false
   }
 }
 
 /**
  * Get contract information
+ * Since the new contract has a simplified ABI, we'll return basic info
  */
 export async function getIDRXContractInfo(): Promise<{
   name: string
@@ -357,24 +339,109 @@ export async function getIDRXContractInfo(): Promise<{
       return null
     }
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    const contract = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, provider)
-
-    const [name, symbol, decimals, owner] = await Promise.all([
-      contract.name(),
-      contract.symbol(),
-      contract.decimals(),
-      contract.owner()
-    ])
-
+    // For the simplified contract, return basic information
     return {
-      name,
-      symbol,
-      decimals,
-      owner
+      name: "IDRX Faucet",
+      symbol: "IDRX",
+      decimals: 18,
+      owner: "0x0000000000000000000000000000000000000000" // Unknown for simplified contract
     }
   } catch (error) {
     console.error('Error getting contract info:', error)
     return null
+  }
+}
+
+/**
+ * Test contract connection and available functions
+ */
+export async function testContractConnection(): Promise<void> {
+  try {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      throw new Error('MetaMask is not installed')
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
+    const signer = provider.getSigner()
+    const connectedAddress = await signer.getAddress()
+    
+    console.log('Testing contract connection...')
+    console.log('Contract address:', IDRX_MOCK_CONTRACT_ADDRESS)
+    console.log('Connected address:', connectedAddress)
+    
+    const contract = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, provider)
+    
+    // Test basic contract functions
+    try {
+      const owner = await contract.owner()
+      console.log('✅ Owner function works:', owner)
+    } catch (e: any) {
+      console.log('❌ Owner function failed:', e.message)
+    }
+    
+    try {
+      const dailyLimit = await contract.DAILY_LIMIT()
+      console.log('✅ DAILY_LIMIT function works:', dailyLimit.toString())
+    } catch (e: any) {
+      console.log('❌ DAILY_LIMIT function failed:', e.message)
+    }
+    
+    try {
+      const canClaim = await contract.canClaim(connectedAddress)
+      console.log('✅ canClaim function works:', canClaim)
+    } catch (e: any) {
+      console.log('❌ canClaim function failed:', e.message)
+    }
+    
+    try {
+      const lastClaimed = await contract.lastClaimedAt(connectedAddress)
+      console.log('✅ lastClaimedAt function works:', lastClaimed.toString())
+    } catch (e: any) {
+      console.log('❌ lastClaimedAt function failed:', e.message)
+    }
+    
+    // Test claim function with signer
+    const contractWithSigner = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, signer)
+    try {
+      const gasEstimate = await contractWithSigner.estimateGas.claim()
+      console.log('✅ Claim function works, gas estimate:', gasEstimate.toString())
+    } catch (e: any) {
+      console.log('❌ Claim function failed:', e.message)
+    }
+    
+  } catch (error) {
+    console.error('Contract connection test failed:', error)
+  }
+}
+
+/**
+ * Check if user can claim and get time until next claim
+ */
+export async function checkClaimEligibility(userAddress: string): Promise<{ canClaim: boolean; timeRemaining?: number }> {
+  try {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      throw new Error('MetaMask is not installed')
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
+    const contract = new ethers.Contract(IDRX_MOCK_CONTRACT_ADDRESS, IDRX_MOCK_ABI, provider)
+    
+    const canClaim = await contract.canClaim(userAddress)
+    
+    if (!canClaim) {
+      // Get last claim time to calculate time remaining
+      const lastClaimed = await contract.lastClaimedAt(userAddress)
+      const now = Math.floor(Date.now() / 1000)
+      const timeSinceLastClaim = now - lastClaimed.toNumber()
+      const cooldownPeriod = 24 * 60 * 60 // 24 hours in seconds
+      const timeRemaining = Math.max(0, cooldownPeriod - timeSinceLastClaim)
+      
+      return { canClaim: false, timeRemaining }
+    }
+    
+    return { canClaim: true }
+  } catch (error) {
+    console.error('Error checking claim eligibility:', error)
+    return { canClaim: false }
   }
 }

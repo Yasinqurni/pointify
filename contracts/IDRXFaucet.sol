@@ -1,94 +1,87 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./ERC20Mock.sol";
+interface IIDRXToken {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
 
 /**
  * @title IDRXFaucet
- * @dev Extended IDRX Mock contract with daily faucet functionality
- * Allows users to claim 1000 IDRX tokens once per day
+ * @dev IDRX token faucet with daily claim functionality
+ * Allows users to claim 10,000 IDRX tokens once per day
  */
-contract IDRXFaucet is IDRXMock {
-    // Faucet configuration
-    uint256 public constant DAILY_CLAIM_AMOUNT = 1000 * 10**18; // 1000 IDRX with 18 decimals
-    uint256 public constant CLAIM_COOLDOWN = 24 hours; // 24 hours cooldown
+contract IDRXFaucet {
+    address public owner;
+    IIDRXToken public idrxToken;
+    uint256 public constant DAILY_LIMIT = 10_000 * 10**18; // 10,000 IDRX with 18 decimals
+    uint256 public constant CLAIM_COOLDOWN = 1 days; // 24 hours cooldown
     
-    // Track last claim time for each address
-    mapping(address => uint256) public lastClaimTime;
+    mapping(address => uint256) public lastClaimedAt;
     
     // Events
     event TokensClaimed(address indexed user, uint256 amount, uint256 timestamp);
     event FaucetRefilled(address indexed owner, uint256 amount);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
-    constructor(
-        string memory name,
-        string memory symbol,
-        address initialAccount,
-        uint256 initialBalance
-    ) IDRXMock(name, symbol, initialAccount, initialBalance) {
-        // Constructor inherits from IDRXMock
+    constructor(address _tokenAddress) {
+        owner = msg.sender;
+        idrxToken = IIDRXToken(_tokenAddress);
+    }
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
     }
     
     /**
-     * @dev Public faucet function - allows anyone to claim 1000 IDRX once per day
-     * @return success Whether the claim was successful
+     * @dev Public claim function - allows anyone to claim 10,000 IDRX once per day
      */
-    function faucet() external returns (bool success) {
-        return claimTokens(msg.sender);
-    }
-    
-    /**
-     * @dev Public claim function - alias for faucet
-     * @return success Whether the claim was successful
-     */
-    function claim() external returns (bool success) {
-        return claimTokens(msg.sender);
-    }
-    
-    /**
-     * @dev Internal function to handle token claiming logic
-     * @param user Address to receive the tokens
-     * @return success Whether the claim was successful
-     */
-    function claimTokens(address user) internal returns (bool success) {
-        require(user != address(0), "Cannot claim to zero address");
+    function claim() external {
+        require(canClaim(msg.sender), "Already claimed in last 24h");
+        require(idrxToken.balanceOf(address(this)) >= DAILY_LIMIT, "Faucet is empty");
         
-        // Check if user can claim (24 hours cooldown)
-        require(
-            block.timestamp >= lastClaimTime[user] + CLAIM_COOLDOWN,
-            "Claim cooldown not met. You can claim once every 24 hours"
-        );
+        lastClaimedAt[msg.sender] = block.timestamp;
         
-        // Check if contract has enough tokens to distribute
-        require(
-            balanceOf(owner()) >= DAILY_CLAIM_AMOUNT,
-            "Faucet is empty. Please contact admin to refill"
-        );
+        require(idrxToken.transfer(msg.sender, DAILY_LIMIT), "Transfer failed");
         
-        // Update last claim time
-        lastClaimTime[user] = block.timestamp;
-        
-        // Transfer tokens from owner to user
-        _transfer(owner(), user, DAILY_CLAIM_AMOUNT);
-        
-        emit TokensClaimed(user, DAILY_CLAIM_AMOUNT, block.timestamp);
-        
-        return true;
+        emit TokensClaimed(msg.sender, DAILY_LIMIT, block.timestamp);
     }
     
     /**
      * @dev Check if a user can claim tokens
      * @param user Address to check
      * @return canClaim Whether the user can claim
+     */
+    function canClaim(address user) public view returns (bool) {
+        if (lastClaimedAt[user] == 0) {
+            return true; // User has never claimed
+        }
+        return block.timestamp - lastClaimedAt[user] >= CLAIM_COOLDOWN;
+    }
+    
+    /**
+     * @dev Get user's last claim time
+     * @param user Address to check
+     * @return timestamp Last claim timestamp
+     */
+    function getUserLastClaimTime(address user) external view returns (uint256 timestamp) {
+        return lastClaimedAt[user];
+    }
+    
+    /**
+     * @dev Check if a user can claim tokens with time until next claim
+     * @param user Address to check
+     * @return canClaim Whether the user can claim
      * @return timeUntilNextClaim Seconds until next claim is available
      */
     function canUserClaim(address user) external view returns (bool canClaim, uint256 timeUntilNextClaim) {
-        if (lastClaimTime[user] == 0) {
+        if (lastClaimedAt[user] == 0) {
             // User has never claimed
             return (true, 0);
         }
         
-        uint256 nextClaimTime = lastClaimTime[user] + CLAIM_COOLDOWN;
+        uint256 nextClaimTime = lastClaimedAt[user] + CLAIM_COOLDOWN;
         
         if (block.timestamp >= nextClaimTime) {
             return (true, 0);
@@ -98,27 +91,8 @@ contract IDRXFaucet is IDRXMock {
     }
     
     /**
-     * @dev Get user's last claim time
-     * @param user Address to check
-     * @return timestamp Last claim timestamp
-     */
-    function getUserLastClaimTime(address user) external view returns (uint256 timestamp) {
-        return lastClaimTime[user];
-    }
-    
-    /**
-     * @dev Owner function to refill the faucet
-     * @param amount Amount of tokens to mint to owner for faucet distribution
-     */
-    function refillFaucet(uint256 amount) external onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
-        _mint(owner(), amount);
-        emit FaucetRefilled(owner(), amount);
-    }
-    
-    /**
      * @dev Get faucet status information
-     * @return faucetBalance Current faucet balance (owner balance)
+     * @return faucetBalance Current faucet balance
      * @return dailyAmount Amount distributed per claim
      * @return cooldownPeriod Cooldown period in seconds
      */
@@ -128,20 +102,49 @@ contract IDRXFaucet is IDRXMock {
         uint256 cooldownPeriod
     ) {
         return (
-            balanceOf(owner()),
-            DAILY_CLAIM_AMOUNT,
+            idrxToken.balanceOf(address(this)),
+            DAILY_LIMIT,
             CLAIM_COOLDOWN
         );
     }
     
     /**
-     * @dev Emergency function to update claim amount (only owner)
-     * @param newAmount New daily claim amount
+     * @dev Owner function to refill the faucet
+     * @param amount Amount of tokens to transfer to faucet
      */
-    function updateClaimAmount(uint256 newAmount) external onlyOwner {
-        require(newAmount > 0, "Amount must be greater than zero");
-        // Note: This would require making DAILY_CLAIM_AMOUNT non-constant
-        // For now, this is just a placeholder for future upgrades
-        revert("Claim amount is fixed at deployment");
+    function refillFaucet(uint256 amount) external onlyOwner {
+        require(amount > 0, "Amount must be greater than zero");
+        require(idrxToken.transfer(address(this), amount), "Transfer to faucet failed");
+        emit FaucetRefilled(owner, amount);
+    }
+    
+    /**
+     * @dev Owner function to withdraw all tokens from faucet
+     */
+    function withdrawAll() external onlyOwner {
+        uint256 balance = idrxToken.balanceOf(address(this));
+        require(balance > 0, "No tokens to withdraw");
+        require(idrxToken.transfer(owner, balance), "Withdraw failed");
+    }
+    
+    /**
+     * @dev Owner function to withdraw specific amount of tokens from faucet
+     * @param amount Amount of tokens to withdraw
+     */
+    function withdraw(uint256 amount) external onlyOwner {
+        require(amount > 0, "Amount must be greater than zero");
+        require(idrxToken.balanceOf(address(this)) >= amount, "Insufficient balance");
+        require(idrxToken.transfer(owner, amount), "Withdraw failed");
+    }
+    
+    /**
+     * @dev Transfer ownership to a new address
+     * @param newOwner Address of the new owner
+     */
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "New owner cannot be zero address");
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
 }
